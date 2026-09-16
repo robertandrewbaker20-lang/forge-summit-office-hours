@@ -1,4 +1,5 @@
 import { neon, Pool } from "@neondatabase/serverless";
+import { previewDatabaseUrl } from "./preview-env";
 
 type Sql = ReturnType<typeof neon>;
 
@@ -6,7 +7,12 @@ let _sql: Sql | null = null;
 let _pool: Pool | null = null;
 
 function databaseUrl(): string {
-  const url = process.env.DATABASE_URL;
+  const url =
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.DATABASE_URL_UNPOOLED ||
+    previewDatabaseUrl;
   if (!url) {
     throw new Error("DATABASE_URL is not set");
   }

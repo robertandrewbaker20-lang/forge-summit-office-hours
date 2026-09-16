@@ -1,4 +1,5 @@
 import { getPool, getSql } from "./db";
+import { logoFor } from "./logos";
 import type {
   Agency,
   Availability,
@@ -185,6 +186,7 @@ export async function getAvailability(): Promise<Availability> {
         location: ag.location,
         website: ag.website,
         rep: ag.repName,
+        logo: logoFor(ag.name),
         open: data.open,
         slots: data.slots,
       };

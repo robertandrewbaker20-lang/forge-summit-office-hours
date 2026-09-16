@@ -285,13 +285,9 @@ async function main() {
            blurb = EXCLUDED.blurb,
            location = EXCLUDED.location,
            website = EXCLUDED.website,
-           rep_name = CASE
-             WHEN agencies.rep_name IS NOT NULL AND agencies.rep_name <> '' AND agencies.rep_name <> 'TBC'
-             THEN agencies.rep_name ELSE EXCLUDED.rep_name END,
-           rep_emails = CASE
-             WHEN agencies.rep_emails IS NOT NULL AND agencies.rep_emails <> ''
-             THEN agencies.rep_emails ELSE EXCLUDED.rep_emails END,
-           active = agencies.active`,
+           rep_name = EXCLUDED.rep_name,
+           rep_emails = EXCLUDED.rep_emails,
+           active = EXCLUDED.active`,
         [
           ag.name,
           ag.type,
@@ -304,6 +300,12 @@ async function main() {
         ],
       );
     }
+
+    const keep = AGENCIES.map((ag) => ag.name);
+    await client.query(
+      `UPDATE agencies SET active = false WHERE NOT (name = ANY($1::text[]))`,
+      [keep],
+    );
 
     const slotCount = await client.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM slots`,

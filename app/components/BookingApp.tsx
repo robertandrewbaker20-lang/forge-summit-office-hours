@@ -311,7 +311,9 @@ function GroupTile({
   hosts: AvailabilityAgency[];
   onPick: (type: HostType) => void;
 }) {
-  const marks = hosts.map((a) => logoFor(a.name)).filter(Boolean) as string[];
+  const marks = hosts
+    .map((a) => ({ name: a.name, src: a.logo || logoFor(a.name) }))
+    .filter((m) => Boolean(m.src));
   return (
     <button
       className={`group${type === "Cohort" ? " cohort" : ""}`}
@@ -328,9 +330,9 @@ function GroupTile({
       <span className="group-sub">{sub}</span>
       {marks.length > 0 && (
         <span className="strip">
-          {marks.map((src) => (
+          {marks.map((m) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={src} src={src} alt="" />
+            <img key={m.name} src={m.src!} alt={m.name} />
           ))}
         </span>
       )}
@@ -358,7 +360,7 @@ function ListScreen({
       <h2>{isCohort ? "Phoenix 2026 startups" : "Agencies and partners"}</h2>
       <p className="h2-sub">The number on the right is how many times are still open.</p>
       {hosts.map((a) => {
-        const mark = logoFor(a.name);
+        const mark = a.logo || logoFor(a.name);
         return (
           <button
             key={a.name}
@@ -368,7 +370,7 @@ function ListScreen({
           >
             {mark ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={mark} alt="" />
+              <img src={mark} alt={a.name} />
             ) : null}
             <span className="row-text">
               <span className="row-name">{a.name}</span>
@@ -414,7 +416,7 @@ function HostScreen({
   onSubmit: (event: FormEvent) => void;
 }) {
   const isCohort = agency.type === "Cohort";
-  const mark = logoFor(agency.name);
+  const mark = agency.logo || logoFor(agency.name);
   const slots = agency.slots.filter((s) => !activeDay || s.day === activeDay);
   const anyOpen = slots.some((s) => s.open);
 
@@ -427,7 +429,7 @@ function HostScreen({
         <div className="d-head">
           {mark ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={mark} alt="" />
+            <img src={mark} alt={agency.name} />
           ) : null}
           <div>
             <h2>{agency.name}</h2>

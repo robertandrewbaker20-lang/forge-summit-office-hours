@@ -1,15 +1,20 @@
 import { NextResponse } from "next/server";
+import { previewAdminApiKey } from "./preview-env";
+
+function adminSecret(): string {
+  return process.env.ADMIN_API_KEY || previewAdminApiKey;
+}
 
 export function unauthorized(): NextResponse {
   return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 }
 
 export function adminKeyConfigured(): boolean {
-  return Boolean(process.env.ADMIN_API_KEY);
+  return Boolean(adminSecret());
 }
 
 export function requireAdmin(request: Request): NextResponse | null {
-  const expected = process.env.ADMIN_API_KEY;
+  const expected = adminSecret();
   if (!expected) {
     return NextResponse.json(
       { ok: false, error: "ADMIN_API_KEY is not configured" },

@@ -54,6 +54,7 @@ export type AvailabilityAgency = {
   location: string;
   website: string;
   rep: string;
+  logo: string | null;
   open: number;
   slots: AvailabilitySlot[];
 };

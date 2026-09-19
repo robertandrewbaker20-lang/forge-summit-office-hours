@@ -1,4 +1,6 @@
-/** Cohort marks: public PNGs under /public/logos, with data-URI fallbacks.
+/** Host marks: static files under /public/logos, with data-URI fallbacks
+ * for cohort logos. Partner marks are official files from asbtdc.org,
+ * legacy.sba.gov/district/arkansas, and arkansasedc.com — list/detail only.
  * Mod Tech Labs uses the official stacked mark from modtechlabs.com
  * composited on brand blue (#0333D0) so it reads on the white attendee UI.
  */
@@ -26,6 +28,9 @@ export const HOST_LOGO_PATHS: Record<string, string> = {
   nKode: "/logos/nkode.png",
   "NTS Innovations": "/logos/nts-innovations.png",
   "Rook Armor": "/logos/rook-armor.png",
+  ASBTDC: "/logos/asbtdc.png",
+  SBA: "/logos/sba.svg",
+  AEDC: "/logos/aedc.png",
 };
 
 export function logoFor(name: string): string | null {

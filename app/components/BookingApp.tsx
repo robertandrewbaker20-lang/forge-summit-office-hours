@@ -287,20 +287,18 @@ function GroupsScreen({
       {cohortHosts.length > 0 && (
         <GroupTile
           type="Cohort"
-          title="Phoenix 2026 startups"
+          title="Startups"
           sub={`${cohortCount} defence technology companies. Sit down with a founder.`}
           open={cohortOpen}
-          hosts={cohortHosts}
           onPick={onGroup}
         />
       )}
       {partnerHosts.length > 0 && (
         <GroupTile
           type="Partner"
-          title="Partner agencies"
+          title="Support agencies"
           sub="SBA, ASBTDC, AEDC — funding, certification, contracting and site selection."
           open={partnerOpen}
-          hosts={partnerHosts}
           onPick={onGroup}
         />
       )}
@@ -313,19 +311,14 @@ function GroupTile({
   title,
   sub,
   open,
-  hosts,
   onPick,
 }: {
   type: HostType;
   title: string;
   sub: string;
   open: number;
-  hosts: AvailabilityAgency[];
   onPick: (type: HostType) => void;
 }) {
-  const marks = hosts
-    .map((a) => ({ name: a.name, src: a.logo || logoFor(a.name) }))
-    .filter((m) => Boolean(m.src));
   return (
     <button
       className={`group${type === "Cohort" ? " cohort" : ""}`}
@@ -340,14 +333,6 @@ function GroupTile({
         </span>
       </span>
       <span className="group-sub">{sub}</span>
-      {marks.length > 0 && (
-        <span className="strip">
-          {marks.map((m) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={m.name} src={m.src!} alt={m.name} />
-          ))}
-        </span>
-      )}
     </button>
   );
 }
@@ -369,7 +354,7 @@ function ListScreen({
       <button className="back" onClick={onBack}>
         Back
       </button>
-      <h2>{isCohort ? "Phoenix 2026 startups" : "Partner agencies"}</h2>
+      <h2>{isCohort ? "Startups" : "Support agencies"}</h2>
       <p className="h2-sub">The number on the right is how many times are still open.</p>
       <VenueNote />
       {hosts.map((a) => {
@@ -436,7 +421,7 @@ function HostScreen({
   return (
     <>
       <button className="back" onClick={onBack}>
-        Back to {isCohort ? "startups" : "partners"}
+        Back to {isCohort ? "startups" : "support agencies"}
       </button>
       <div className={`detail${isCohort ? " cohort" : ""}`}>
         <div className="d-head">

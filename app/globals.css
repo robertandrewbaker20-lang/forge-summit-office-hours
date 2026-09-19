@@ -108,9 +108,22 @@ h1 {
 }
 
 .lede {
-  margin: 0 0 20px;
+  margin: 0 0 14px;
   font-size: 15.5px;
   color: var(--ash);
+}
+
+.venue {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  background: #e8eef5;
+  border-left: 3px solid var(--signal);
+  font-size: 14.5px;
+  color: var(--navy);
+}
+
+.venue strong {
+  font-weight: 700;
 }
 
 .group {
@@ -559,6 +572,25 @@ button:focus-visible {
   font-size: 14px;
   margin: 22px 0 0;
   line-height: 1.55;
+}
+
+.done .venue {
+  background: #132033;
+  border-left-color: var(--signal);
+  color: #d6e2f0;
+  margin: 18px 0 0;
+}
+
+.done .venue strong {
+  color: #fff;
+}
+
+.done .where-extra {
+  display: block;
+  font-weight: 400;
+  font-size: 13px;
+  color: #8fa2b8;
+  margin-top: 4px;
 }
 
 .again {

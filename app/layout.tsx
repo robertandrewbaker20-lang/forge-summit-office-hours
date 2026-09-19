@@ -12,7 +12,7 @@ const archivo = Archivo({
 export const metadata: Metadata = {
   title: "Office Hours — Forge Summit",
   description:
-    "Book fifteen minutes with Phoenix 2026 startups and partner agencies at the 2026 Forge Summit.",
+    "Book thirty minutes with Phoenix 2026 startups and partner agencies in Ballroom C at the 2026 Forge Summit.",
 };
 
 export const viewport: Viewport = {

@@ -1,9 +1,10 @@
 /**
  * Idempotent schema + seed matching the Apps Script export (Code.gs).
- * Existing bookings are never overwritten. Slot rows are generated only
- * when the slots table is empty.
+ * Existing Booked rows are never overwritten. Open/Blocked slots are
+ * rebuilt to the current 30-minute America/Chicago grid.
  */
 import { Pool } from "@neondatabase/serverless";
+import { VENUE_ROOM } from "../lib/venue";
 
 const TZ_OFFSET = "-05:00"; // America/Chicago, CDT (Oct 2026)
 
@@ -29,7 +30,7 @@ const AGENCIES: AgencySeed[] = [
     website: "",
     repName: "TBC",
     repEmails: "",
-    active: false,
+    active: true,
   },
   {
     name: "AEDC",
@@ -39,7 +40,7 @@ const AGENCIES: AgencySeed[] = [
     website: "",
     repName: "TBC",
     repEmails: "",
-    active: false,
+    active: true,
   },
   {
     name: "ASBTDC",
@@ -49,7 +50,7 @@ const AGENCIES: AgencySeed[] = [
     website: "",
     repName: "TBC",
     repEmails: "",
-    active: false,
+    active: true,
   },
   {
     name: "August Interactive",
@@ -145,10 +146,10 @@ const SETTINGS: [string, string][] = [
   ["Event Name", "2026 Forge Summit"],
   ["Tagline", "Linking the Industrial Heartland to the Irregular Front"],
   ["Location", "Downtown North Little Rock, Arkansas"],
-  ["Room", "Innovation Alley"],
+  ["Room", VENUE_ROOM],
   ["Logo URL", ""],
-  ["Slot Minutes", "15"],
-  ["Buffer Minutes", "5"],
+  ["Slot Minutes", "30"],
+  ["Buffer Minutes", "0"],
   ["Max Bookings Per Email", "2"],
   ["Admin Email", "Robertandrewbaker20@gmail.com"],
   ["Send Calendar Invites", "false"],
@@ -253,13 +254,23 @@ async function main() {
       `CREATE INDEX IF NOT EXISTS slots_attendee_email_idx ON slots (attendee_email)`,
     );
 
+    const forceSettings = new Set(["Slot Minutes", "Buffer Minutes", "Room"]);
     for (const [key, value] of SETTINGS) {
-      await client.query(
-        `INSERT INTO settings (key, value)
-         VALUES ($1, $2)
-         ON CONFLICT (key) DO NOTHING`,
-        [key, value],
-      );
+      if (forceSettings.has(key)) {
+        await client.query(
+          `INSERT INTO settings (key, value)
+           VALUES ($1, $2)
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+          [key, value],
+        );
+      } else {
+        await client.query(
+          `INSERT INTO settings (key, value)
+           VALUES ($1, $2)
+           ON CONFLICT (key) DO NOTHING`,
+          [key, value],
+        );
+      }
     }
 
     const schedCount = await client.query<{ n: string }>(
@@ -307,22 +318,22 @@ async function main() {
       [keep],
     );
 
-    const slotCount = await client.query<{ n: string }>(
-      `SELECT count(*)::text AS n FROM slots`,
+    const booked = await client.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM slots WHERE status = 'Booked'`,
     );
-    const existingSlots = Number(slotCount.rows[0]?.n || 0);
-    if (existingSlots > 0) {
-      console.log(
-        `Seed complete (agencies upserted, ${existingSlots} existing slots left in place)`,
-      );
-      return;
-    }
+    const keptBooked = Number(booked.rows[0]?.n || 0);
+    const cleared = await client.query(
+      `DELETE FROM slots WHERE status <> 'Booked'`,
+    );
+    console.log(
+      `Rebuilding 30-minute grid (kept ${keptBooked} booked, cleared ${cleared.rowCount || 0} open/blocked)`,
+    );
 
     const agencyRows = await client.query<{ id: number; name: string }>(
       `SELECT id, name FROM agencies ORDER BY id`,
     );
-    const slotMinutes = 15;
-    const stepMinutes = 20;
+    const slotMinutes = 30;
+    const stepMinutes = 30;
 
     for (const day of SCHEDULE) {
       const [endH, endM] = parseHm(day.end);
@@ -367,7 +378,9 @@ async function main() {
     const after = await client.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM slots`,
     );
-    console.log(`Seed complete (${after.rows[0]?.n || 0} slots)`);
+    console.log(
+      `Seed complete (${after.rows[0]?.n || 0} slots, ${keptBooked} booked kept)`,
+    );
   } finally {
     client.release();
     await pool.end();

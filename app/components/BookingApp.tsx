@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { CURTAIN, SUMMIT_LOCKUP, logoFor } from "@/lib/logos";
+import { VENUE_ROOM } from "@/lib/venue";
 import type {
   Availability,
   AvailabilityAgency,
@@ -181,7 +182,8 @@ export function BookingApp() {
         {!data.open && view !== "done" ? (
           <div className="msg" style={{ padding: 0 }}>
             Booking is closed. Open times are still available as walk-ups at each
-            table in {data.event.room || "the office hours area"}.
+            table in {data.event.room || VENUE_ROOM}. Each group has a table
+            sign.
           </div>
         ) : view === "done" && result ? (
           <Done result={result} onAgain={() => void reset()} />
@@ -249,6 +251,15 @@ function Masthead({
   );
 }
 
+function VenueNote({ room }: { room?: string }) {
+  const hall = room || VENUE_ROOM;
+  return (
+    <p className="venue">
+      Meetings are in <strong>{hall}</strong>. Each group has a table sign.
+    </p>
+  );
+}
+
 function GroupsScreen({
   room,
   cohortCount,
@@ -269,9 +280,10 @@ function GroupsScreen({
   return (
     <>
       <p className="lede">
-        Book fifteen minutes in {room || "the office hours area"}. Choose who you
-        want to meet, then pick a time.
+        Book thirty minutes with a Phoenix 2026 startup or a partner agency.
+        Choose who you want to meet, then pick a time.
       </p>
+      <VenueNote room={room} />
       {cohortHosts.length > 0 && (
         <GroupTile
           type="Cohort"
@@ -285,8 +297,8 @@ function GroupsScreen({
       {partnerHosts.length > 0 && (
         <GroupTile
           type="Partner"
-          title="Agencies and partners"
-          sub="Funding, certification, contracting and site selection."
+          title="Partner agencies"
+          sub="SBA, ASBTDC, AEDC — funding, certification, contracting and site selection."
           open={partnerOpen}
           hosts={partnerHosts}
           onPick={onGroup}
@@ -357,8 +369,9 @@ function ListScreen({
       <button className="back" onClick={onBack}>
         Back
       </button>
-      <h2>{isCohort ? "Phoenix 2026 startups" : "Agencies and partners"}</h2>
+      <h2>{isCohort ? "Phoenix 2026 startups" : "Partner agencies"}</h2>
       <p className="h2-sub">The number on the right is how many times are still open.</p>
+      <VenueNote />
       {hosts.map((a) => {
         const mark = a.logo || logoFor(a.name);
         return (
@@ -423,7 +436,7 @@ function HostScreen({
   return (
     <>
       <button className="back" onClick={onBack}>
-        Back to {isCohort ? "startups" : "agencies"}
+        Back to {isCohort ? "startups" : "partners"}
       </button>
       <div className={`detail${isCohort ? " cohort" : ""}`}>
         <div className="d-head">
@@ -463,6 +476,7 @@ function HostScreen({
         )}
       </div>
 
+      <VenueNote />
       <h3>Available times</h3>
       {days.length > 1 && (
         <div className="days">
@@ -574,15 +588,18 @@ function Done({
         <dd>
           {result.day}, {result.time}
         </dd>
-        {result.room ? (
-          <>
-            <dt>Where</dt>
-            <dd>{result.room}</dd>
-          </>
-        ) : null}
+        <dt>Where</dt>
+        <dd>
+          {result.room || VENUE_ROOM}
+          <span className="where-extra">Each group has a table sign.</span>
+        </dd>
         <dt>Code</dt>
         <dd className="code">{result.confirmation}</dd>
       </dl>
+      <p className="venue">
+        Meetings are in <strong>{result.room || VENUE_ROOM}</strong>. Look for
+        this group&apos;s table sign.
+      </p>
       <p>
         Arrive a couple of minutes early and give your name at the table. If you
         can no longer make it, tell the host so the slot can go to someone else.

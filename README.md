@@ -1,6 +1,6 @@
 # Forge Summit 2026 — Office Hours
 
-Phone-first booking for the 2026 Forge Summit (13–14 October, America/Chicago) at Innovation Alley, Downtown North Little Rock. Attendees scan a QR code, pick a Phoenix 2026 cohort host or a partner agency, and take a 15-minute slot (5-minute buffer).
+Phone-first booking for the 2026 Forge Summit (13–14 October, America/Chicago) in Ballroom C, Downtown North Little Rock. Attendees scan a QR code, pick a Phoenix 2026 cohort host or a partner agency, and take a 30-minute slot. Each group has a table sign.
 
 Mid-event ops run through a Bearer-authenticated admin API. Flip hosts Active, close booking, or Block a slot without a redeploy.
 
@@ -22,7 +22,7 @@ Public surfaces:
 | `POST /api/bookSlot` | Race-safe Open → Booked |
 | `GET /api/getBoard` | Board grid |
 
-Partners with `Active = false` are omitted from `/` and `/board`. Cohort hosts stay listed. Max **2 bookings per email**.
+Partner agencies (SBA, AEDC, ASBTDC) and Phoenix cohort hosts are Active in seed. Max **2 bookings per email**.
 
 ## Local setup
 
@@ -49,11 +49,11 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Board: [http://localhost:3000/board](http://localhost:3000/board).
 
-`npm run db:seed` creates `agencies`, `settings`, `schedule`, and `slots` if they are missing, upserts the Apps Script host list, and generates the 08:00–16:00 / 20-minute grid only when `slots` is empty. Existing Booked rows are left alone.
+`npm run db:seed` creates `agencies`, `settings`, `schedule`, and `slots` if they are missing, upserts the Apps Script host list (partners Active), and rebuilds the 08:00–16:00 / 30-minute grid. Existing Booked rows are left alone.
 
 ## Booking rules
 
-- Slot length 15 minutes + 5-minute buffer (grid step 20 minutes), 08:00–16:00 America/Chicago.
+- Slot length 30 minutes, back-to-back (`:00` / `:30`), 08:00–16:00 America/Chicago. Meetings are in Ballroom C.
 - `POST /api/bookSlot` takes `{ slotId, name, email, org?, topic? }`.
 - Email cap comes from Settings `Max Bookings Per Email` (seeded at 2).
 - Concurrent bookings for the same email are serialized with `pg_advisory_xact_lock(hashtext(email))`. The Open → Booked update is `WHERE id = $1 AND status = 'Open'` so a double-tap returns `TAKEN`.
@@ -154,4 +154,4 @@ After Preview is up:
 curl -sS "$HOST/api/getAvailability" | head
 ```
 
-Expect `"open": true` and the eight active Phoenix cohort hosts. SBA / AEDC / ASBTDC stay hidden until an admin PATCH sets `active: true`.
+Expect `"open": true`, the eight Phoenix cohort hosts, and the three partner agencies (SBA, AEDC, ASBTDC). Slots are 30 minutes.

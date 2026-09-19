@@ -8,6 +8,7 @@ import type {
   BookSlotResult,
   EventInfo,
   HostType,
+  OpsBooking,
   Slot,
   SlotStatus,
 } from "./types";
@@ -429,6 +430,27 @@ export async function listSlots(filter?: {
       if (filter?.status && slot.status !== filter.status) return false;
       return true;
     });
+}
+
+export async function listOpsBookings(): Promise<OpsBooking[]> {
+  const [slots, agencies] = await Promise.all([
+    listSlots({ status: "Booked" }),
+    listAgencies(),
+  ]);
+  const typeByName = new Map(agencies.map((ag) => [ag.name, ag.type]));
+  return slots.map((slot) => ({
+    id: slot.id,
+    attendeeName: slot.attendeeName || "",
+    attendeeEmail: slot.attendeeEmail || "",
+    organization: slot.organization || "",
+    topic: slot.topic || "",
+    hostName: slot.agencyName,
+    hostType: typeByName.get(slot.agencyName) || "Partner",
+    day: slot.dayLabel,
+    time: slot.timeLabel,
+    confirmation: slot.confirmation || "",
+    bookedAt: slot.bookedAt,
+  }));
 }
 
 export async function getSlot(id: string): Promise<Slot | null> {

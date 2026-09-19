@@ -5,3 +5,7 @@
  */
 export const previewDatabaseUrl = "";
 export const previewAdminApiKey = "";
+export const previewOpsSecret = "";
+export const previewResendApiKey = "";
+export const previewNotifyEmail = "";
+export const previewFromEmail = "";

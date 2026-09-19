@@ -611,6 +611,138 @@ button:focus-visible {
   color: var(--ash);
 }
 
+.ops-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-bottom: calc(48px + env(safe-area-inset-bottom));
+}
+
+.ops-body {
+  padding: 22px var(--gut) 0;
+}
+
+.ops-lede {
+  margin: 0 0 18px;
+  color: var(--ash);
+  font-size: 14.5px;
+}
+
+.ops-empty {
+  margin: 0;
+  padding: 22px 18px;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  color: var(--ash);
+}
+
+.ops-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  background: var(--sheet);
+}
+
+.ops-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ops-table th,
+.ops-table td {
+  text-align: left;
+  padding: 11px 12px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.ops-table th {
+  color: var(--ash);
+  font-weight: 500;
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: #eef2f6;
+}
+
+.ops-table td a,
+.ops-card a {
+  color: var(--azure);
+  text-decoration: none;
+  word-break: break-word;
+}
+
+.ops-host {
+  display: block;
+  font-weight: 600;
+}
+
+.ops-type {
+  display: block;
+  color: var(--ash);
+  font-size: 12.5px;
+  margin-top: 3px;
+}
+
+.ops-code {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--navy);
+}
+
+.ops-cards {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ops-card {
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--azure);
+  padding: 16px 16px 6px;
+  margin-bottom: 10px;
+}
+
+.ops-card.cohort {
+  border-left-color: var(--phoenix);
+}
+
+.ops-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.ops-card dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px 12px;
+  font-size: 14.5px;
+}
+
+.ops-card dt {
+  color: var(--ash);
+}
+
+.ops-card dd {
+  margin: 0;
+  min-width: 0;
+}
+
+@media (max-width: 800px) {
+  .ops-table-wrap {
+    display: none;
+  }
+  .ops-cards {
+    display: block;
+  }
+}
+
 .board-page {
   margin: 0;
   background: var(--navy);

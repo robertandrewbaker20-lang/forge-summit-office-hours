@@ -108,3 +108,17 @@ export type Board = {
   event: string;
   updated: string;
 };
+
+export type OpsBooking = {
+  id: string;
+  attendeeName: string;
+  attendeeEmail: string;
+  organization: string;
+  topic: string;
+  hostName: string;
+  hostType: HostType;
+  day: string;
+  time: string;
+  confirmation: string;
+  bookedAt: string | null;
+};

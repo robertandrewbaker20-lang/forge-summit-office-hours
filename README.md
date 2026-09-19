@@ -18,8 +18,9 @@ Public surfaces:
 | --- | --- |
 | `/` and `/oh` | Attendee booking |
 | `/board` | Venue display (Chicago “today”) |
+| `/ops/<OPS_SECRET>` or `/ops?key=<OPS_SECRET>` | Unlisted ops list of Booked slots |
 | `GET /api/getAvailability` | Open slots for active hosts |
-| `POST /api/bookSlot` | Race-safe Open → Booked |
+| `POST /api/bookSlot` | Race-safe Open → Booked; then confirmation + notify mail if Resend is configured |
 | `GET /api/getBoard` | Board grid |
 
 Partner agencies (SBA, AEDC, ASBTDC) and Phoenix cohort hosts are Active in seed. Max **2 bookings per email**.
@@ -37,6 +38,10 @@ Set in `.env.local` (never commit these):
 ```
 DATABASE_URL=          # Neon pooled connection string
 ADMIN_API_KEY=         # long random secret for /api/admin/*
+OPS_SECRET=            # long random URL-safe secret for /ops
+RESEND_API_KEY=        # optional; booking still works if unset
+NOTIFY_EMAIL=          # robertandrewbaker20@gmail.com
+FROM_EMAIL=            # verified Resend sender, if not using the test domain
 ```
 
 Obtain `DATABASE_URL` from the Neon console (or the Vercel Neon integration) for project `flat-hat-60967335`, database `neondb`, pooled endpoint. Do not paste the full secret into tickets or chat.
@@ -139,12 +144,48 @@ curl -sS -X PATCH "$HOST/api/admin/slots" \
 
 Setting a slot back to `Open` or `Blocked` clears attendee fields.
 
+## Ops bookings (unlisted)
+
+No password form. The path segment or `key` query must match `OPS_SECRET`. Wrong or missing secret returns the same 404 as an unknown page.
+
+URL pattern (bookmark the full URL):
+
+```
+https://<preview-host>/ops/<OPS_SECRET>
+https://<preview-host>/ops?key=<OPS_SECRET>
+```
+
+Example secret: `openssl rand -hex 24`, then prefix `oh-` if you want it obvious in the path.
+
+The page lists every **Booked** slot: attendee name, email, org, topic, host/agency (startup or support agency), day/time, confirmation code.
+
+If `OPS_SECRET` is not set on that deployment, `/ops` is 404 for every token.
+
+## Booking email
+
+On a successful `POST /api/bookSlot` the app tries to send two Resend messages:
+
+1. **Confirmation** to the attendee — host, time, Ballroom C / room, confirmation code, and the form fields they submitted.
+2. **Notify** to `NOTIFY_EMAIL` (default `robertandrewbaker20@gmail.com`) with the same details.
+
+If `RESEND_API_KEY` is missing, or Resend returns an error, **the booking still succeeds**. The function logs `Booking mail skipped: …` or `Booking mail failed; booking still succeeded.` and continues. Mail is never a hard-fail on book.
+
+`FROM_EMAIL` is the Resend `from` header. The Resend test sender is `Forge Summit Office Hours <beth.t@example.com>`. Replace it with a verified domain address when you have one.
+
 ## Preview deploy
 
-This repository is the source of truth. Link it to the existing Vercel project `forge-summit-office-hours` and set **Preview** env:
+This repository is the source of truth. Link it to the existing Vercel project `forge-summit-oh` and set **Preview** env only (Project → Settings → Environment Variables → environment **Preview**; do not add these to Production from this work):
 
-- `DATABASE_URL` — Neon pooled string for `br-aged-thunder-b5sqlxj2`
-- `ADMIN_API_KEY` — same secret used locally
+| Variable | Required for | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | Booking + ops list | Neon pooled string for `br-aged-thunder-b5sqlxj2` |
+| `ADMIN_API_KEY` | `/api/admin/*` | Bearer secret |
+| `OPS_SECRET` | Unlisted `/ops` page | Long random, URL-safe. Bookmark `$HOST/ops/$OPS_SECRET` |
+| `RESEND_API_KEY` | Mail | If absent, book still succeeds; mail is skipped and logged |
+| `NOTIFY_EMAIL` | Mail | `robertandrewbaker20@gmail.com` |
+| `FROM_EMAIL` | Mail | Verified sender, or Resend onboarding `beth.t@example.com` |
+
+After changing Preview env, redeploy the Preview (or push a commit) so the new values load.
 
 Do not promote to Production from this work. Do not attach forge.institute DNS.
 

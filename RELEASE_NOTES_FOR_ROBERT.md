@@ -3,6 +3,7 @@
 ## URLs
 
 - **Production:** https://forge-summit-oh-robert-baker-s-projects.vercel.app
+- **Production (short alias):** https://forge-summit-oh.vercel.app
 - **Preview (branch):** https://forge-summit-oh-git-cursor-summi-c5ad69-robert-baker-s-projects.vercel.app
 
 ## What changed

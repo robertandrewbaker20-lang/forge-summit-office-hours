@@ -113,6 +113,63 @@ h1 {
   color: var(--ash);
 }
 
+/* Lockup plate is opaque black; lighten drops it onto the curtain. */
+.mast.ssr-landing {
+  padding-bottom: 18px;
+}
+
+/* Keep the lower copy on ink; leave the upper right open for the curtain. */
+.mast.ssr-landing::after {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(6, 11, 20, 0) 0%,
+      rgba(6, 11, 20, 0) 34%,
+      rgba(6, 11, 20, 0.78) 58%,
+      rgba(6, 11, 20, 0.9) 100%
+    ),
+    linear-gradient(
+      100deg,
+      #060b14 0%,
+      rgba(6, 11, 20, 0.84) 30%,
+      rgba(6, 11, 20, 0.28) 64%,
+      rgba(6, 11, 20, 0.05) 100%
+    );
+}
+
+.mast.ssr-landing .lockup {
+  width: 172px;
+  height: auto;
+  max-width: 100%;
+  margin-bottom: 14px;
+  mix-blend-mode: lighten;
+}
+
+.mast.ssr-landing .mast-meta {
+  margin: 0 0 10px;
+  color: #d7e3f0;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+}
+
+.mast.ssr-landing .lede-on-dark {
+  margin: 0;
+  max-width: 36em;
+  color: #f3f6fa;
+  font-size: 15.5px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.mast.ssr-landing .lede-on-dark.mast-hint {
+  margin-top: 6px;
+  color: #b9c8d9;
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+
 .venue {
   margin: 0 0 20px;
   padding: 12px 14px;
@@ -891,6 +948,10 @@ button:focus-visible {
   }
   .lockup {
     height: 44px;
+  }
+  .mast.ssr-landing .lockup {
+    width: 156px;
+    height: auto;
   }
   .slots {
     grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));

@@ -1,25 +1,28 @@
 import { BookingApp } from "./components/BookingApp";
-import { VENUE_ROOM } from "@/lib/venue";
+import { CURTAIN, SUMMIT_LOCKUP } from "@/lib/logos";
 
 export default function HomePage() {
   return (
     <div className="wrap">
-      <header className="ssr-landing" style={{ padding: "1.25rem 1.25rem 0" }}>
-        <p className="eyebrow" style={{ margin: 0, opacity: 0.75, fontSize: "0.8rem", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-          Forge Summit 2026
+      <header
+        className="mast ssr-landing"
+        style={{ backgroundImage: `url(${CURTAIN})` }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          className="lockup"
+          src={SUMMIT_LOCKUP}
+          alt="Forge Summit 2026"
+          width={300}
+          height={166}
+        />
+        <h1>Office hours</h1>
+        <p className="mast-meta">Oct 13–14 · Ballroom C · North Little Rock</p>
+        <p className="lede lede-on-dark">
+          Book thirty minutes with a startup founder or a support agency.
         </p>
-        <h1 style={{ margin: "0.35rem 0 0.5rem", fontSize: "1.65rem", lineHeight: 1.2 }}>
-          Office Hours
-        </h1>
-        <p style={{ margin: "0 0 0.35rem", fontWeight: 600 }}>
-          October 13–14, 2026
-        </p>
-        <p style={{ margin: "0 0 0.75rem", opacity: 0.9 }}>
-          {VENUE_ROOM}, Downtown North Little Rock
-        </p>
-        <p className="lede" style={{ margin: "0 0 1rem" }}>
-          Book thirty minutes with a Phoenix 2026 startup or a support agency
-          (SBA, AEDC, ASBTDC). Phone-first booking — pick a host, then a time.
+        <p className="lede-on-dark mast-hint">
+          Choose who you meet, then pick a time.
         </p>
       </header>
       <BookingApp embed />

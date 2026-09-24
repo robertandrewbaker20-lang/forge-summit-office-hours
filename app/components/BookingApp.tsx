@@ -242,6 +242,7 @@ export function BookingApp({ embed = false }: { embed?: boolean } = { embed: fal
           />
         ) : (
           <GroupsScreen
+            embed={embed}
             room={data.event.room}
             cohortCount={hostsIn("Cohort").length}
             partnerOpen={openIn("Partner")}
@@ -255,12 +256,7 @@ export function BookingApp({ embed = false }: { embed?: boolean } = { embed: fal
   );
 
   if (embed) {
-    return (
-      <>
-        <Masthead event={data.event} compact />
-        {body}
-      </>
-    );
+    return body;
   }
 
   return (
@@ -271,31 +267,16 @@ export function BookingApp({ embed = false }: { embed?: boolean } = { embed: fal
   );
 }
 
-function Masthead({
-  event,
-  compact = false,
-}: {
-  event: Availability["event"];
-  compact?: boolean;
-}) {
+function Masthead({ event }: { event: Availability["event"] }) {
   return (
-    <div
-      className="mast"
-      style={{ backgroundImage: `url(${CURTAIN})` }}
-    >
+    <div className="mast" style={{ backgroundImage: `url(${CURTAIN})` }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         className="lockup"
         src={event.logo || SUMMIT_LOCKUP}
         alt="Forge Summit 2026"
       />
-      {compact ? (
-        <p className="mast-title" style={{ fontSize: "1.35rem", fontWeight: 700, margin: "0.5rem 0 0" }}>
-          Book a meeting
-        </p>
-      ) : (
-        <h1>Office hours</h1>
-      )}
+      <h1>Office hours</h1>
       <p>{event.location || event.name}</p>
     </div>
   );
@@ -311,6 +292,7 @@ function VenueNote({ room }: { room?: string }) {
 }
 
 function GroupsScreen({
+  embed = false,
   room,
   cohortCount,
   partnerOpen,
@@ -319,6 +301,7 @@ function GroupsScreen({
   partnerHosts,
   onGroup,
 }: {
+  embed?: boolean;
   room: string;
   cohortCount: number;
   partnerOpen: number;
@@ -329,10 +312,12 @@ function GroupsScreen({
 }) {
   return (
     <>
-      <p className="lede">
-        Book thirty minutes with a Phoenix 2026 startup or a partner agency.
-        Choose who you want to meet, then pick a time.
-      </p>
+      {embed ? null : (
+        <p className="lede">
+          Book thirty minutes with a startup founder or a support agency.
+          Choose who you meet, then pick a time.
+        </p>
+      )}
       <VenueNote room={room} />
       {cohortHosts.length > 0 && (
         <GroupTile

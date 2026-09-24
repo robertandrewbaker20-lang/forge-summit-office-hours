@@ -15,7 +15,7 @@ const SITE =
 
 const TITLE = "Office Hours — Forge Summit 2026";
 const DESCRIPTION =
-  "Book thirty minutes with Phoenix 2026 startups and partner agencies (SBA, AEDC, ASBTDC) in Ballroom C, Downtown North Little Rock — October 13–14, 2026.";
+  "Book thirty minutes with a startup founder or a support agency in Ballroom C, North Little Rock — October 13–14, 2026.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     siteName: "Forge Summit",
     locale: "en_US",
-    images: [{ url: "/brand/summit-lockup.png", alt: "Forge Summit" }],
+    images: [{ url: "/brand/summit-lockup.png", alt: "Forge Summit 2026" }],
   },
   twitter: {
     card: "summary_large_image",

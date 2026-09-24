@@ -86,7 +86,7 @@ export type BookSlotSuccess = {
 
 export type BookSlotFailure = {
   ok: false;
-  code: "CLOSED" | "INVALID" | "TAKEN" | "LIMIT" | "ERROR";
+  code: "CLOSED" | "INVALID" | "TAKEN" | "LIMIT" | "INACTIVE" | "PAST" | "RATE" | "ERROR";
   limit?: number;
 };
 

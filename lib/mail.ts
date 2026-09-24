@@ -1,10 +1,5 @@
 import { Resend } from "resend";
 import { VENUE_ROOM } from "./venue";
-import {
-  previewFromEmail,
-  previewNotifyEmail,
-  previewResendApiKey,
-} from "./preview-env";
 
 export type BookingMailPayload = {
   name: string;
@@ -22,15 +17,15 @@ const DEFAULT_NOTIFY = "robertandrewbaker20@gmail.com";
 const DEFAULT_FROM = "Forge Summit Office Hours <beth.t@example.com>";
 
 function resendApiKey(): string {
-  return (process.env.RESEND_API_KEY || previewResendApiKey).trim();
+  return (process.env.RESEND_API_KEY || "").trim();
 }
 
 function notifyEmail(): string {
-  return (process.env.NOTIFY_EMAIL || previewNotifyEmail || DEFAULT_NOTIFY).trim();
+  return (process.env.NOTIFY_EMAIL || DEFAULT_NOTIFY).trim();
 }
 
 function fromEmail(): string {
-  return (process.env.FROM_EMAIL || previewFromEmail || DEFAULT_FROM).trim();
+  return (process.env.FROM_EMAIL || DEFAULT_FROM).trim();
 }
 
 function field(value: string, fallback = "—"): string {

@@ -1,4 +1,5 @@
 import { getPool, getSql } from "./db";
+import type { Pool } from "@neondatabase/serverless";
 import { logoFor } from "./logos";
 import type {
   Agency,
@@ -204,10 +205,15 @@ function confirmationCode(): string {
   return out;
 }
 
-export async function bookSlot(payload: BookSlotInput): Promise<BookSlotResult> {
+const ORG_MAX = 120;
+
+export async function bookSlot(
+  payload: BookSlotInput,
+  deps?: { pool?: Pool },
+): Promise<BookSlotResult> {
   const name = String(payload.name || "").trim();
   const email = String(payload.email || "").trim().toLowerCase();
-  const org = String(payload.org || "").trim();
+  const org = String(payload.org || "").trim().slice(0, ORG_MAX);
   const topic = String(payload.topic || "").trim().slice(0, 500);
   const slotId = String(payload.slotId || "").trim();
 
@@ -215,7 +221,7 @@ export async function bookSlot(payload: BookSlotInput): Promise<BookSlotResult> 
     return { ok: false, code: "INVALID" };
   }
 
-  const pool = getPool();
+  const pool = deps?.pool ?? getPool();
   const client = await pool.connect();
 
   try {
@@ -231,6 +237,44 @@ export async function bookSlot(payload: BookSlotInput): Promise<BookSlotResult> 
     if (!bookingIsOpen(cfg)) {
       await client.query("ROLLBACK");
       return { ok: false, code: "CLOSED" };
+    }
+
+    const slotRes = await client.query<{
+      id: string;
+      status: string;
+      start_at: string | Date;
+      agency_id: number;
+      agency_name: string;
+      day_label: string;
+      time_label: string;
+      agency_active: boolean | null;
+    }>(
+      `SELECT s.id, s.status, s.start_at, s.agency_id, s.agency_name,
+              s.day_label, s.time_label, COALESCE(a.active, a2.active) AS agency_active
+       FROM slots s
+       LEFT JOIN agencies a ON a.id = s.agency_id
+       LEFT JOIN agencies a2 ON a2.name = s.agency_name
+       WHERE s.id = $1
+       LIMIT 1`,
+      [slotId],
+    );
+    const slot = slotRes.rows[0];
+    if (!slot) {
+      await client.query("ROLLBACK");
+      return { ok: false, code: "TAKEN" };
+    }
+    if (slot.agency_active === false) {
+      await client.query("ROLLBACK");
+      return { ok: false, code: "INACTIVE" };
+    }
+    const startAt = new Date(slot.start_at);
+    if (Number.isNaN(startAt.getTime()) || startAt.getTime() <= Date.now()) {
+      await client.query("ROLLBACK");
+      return { ok: false, code: "PAST" };
+    }
+    if (slot.status !== "Open") {
+      await client.query("ROLLBACK");
+      return { ok: false, code: "TAKEN" };
     }
 
     const cap = Number(cfg["Max Bookings Per Email"] || 2);
@@ -462,13 +506,28 @@ export async function getSlot(id: string): Promise<Slot | null> {
 export async function updateSlotStatus(input: {
   id: string;
   status: SlotStatus;
+  expectedStatus?: SlotStatus;
   attendeeName?: string | null;
   attendeeEmail?: string | null;
   organization?: string | null;
   topic?: string | null;
-}): Promise<Slot | null> {
+}): Promise<Slot | null | { conflict: true; slot: Slot }> {
   const existing = await getSlot(input.id);
   if (!existing) return null;
+
+  if (input.expectedStatus && existing.status !== input.expectedStatus) {
+    return { conflict: true, slot: existing };
+  }
+
+  // Refuse careless Booked→something else without explicit expectedStatus when
+  // caller tries to set Open/Blocked over Booked without CAS.
+  if (
+    existing.status === "Booked" &&
+    input.status !== "Booked" &&
+    !input.expectedStatus
+  ) {
+    return { conflict: true, slot: existing };
+  }
 
   const sql = getSql();
   const clearing = input.status !== "Booked";
@@ -483,6 +542,7 @@ export async function updateSlotStatus(input: {
   const confirmation = clearing ? null : existing.confirmation;
   const bookedAt = clearing ? null : existing.bookedAt || new Date().toISOString();
 
+  const expected = input.expectedStatus || existing.status;
   const rows = (await sql`
     UPDATE slots
     SET status = ${input.status},
@@ -492,9 +552,15 @@ export async function updateSlotStatus(input: {
         topic = ${topic},
         confirmation = ${confirmation},
         booked_at = ${bookedAt}
-    WHERE id = ${input.id}
+    WHERE id = ${input.id} AND status = ${expected}
     RETURNING *
   `) as SlotRow[];
 
-  return rows[0] ? mapSlot(rows[0]) : null;
+  if (!rows[0]) {
+    const again = await getSlot(input.id);
+    if (again) return { conflict: true, slot: again };
+    return null;
+  }
+
+  return mapSlot(rows[0]);
 }

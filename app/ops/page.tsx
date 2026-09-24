@@ -1,14 +1,8 @@
-import { opsTokenFromSearch, requireOpsToken } from "@/lib/ops";
-import { OpsList } from "./OpsList";
+import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function OpsQueryPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const params = await searchParams;
-  requireOpsToken(opsTokenFromSearch(params));
-  return <OpsList />;
+/** Query-string ops access (?key=) is disabled. Use /ops/<OPS_SECRET> only. */
+export default function OpsQueryPage() {
+  notFound();
 }

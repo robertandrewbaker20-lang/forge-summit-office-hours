@@ -18,9 +18,14 @@ const FAIL: Record<string, string> = {
     "You already hold the maximum number of meetings. Leave some room for other attendees.",
   CLOSED: "Booking has closed. Try a walk-up at the table.",
   INVALID: "Check your name and email, then try again.",
+  INACTIVE: "That host is not taking bookings right now. Pick another.",
+  PAST: "That time has already started. Pick another.",
+  RATE: "Too many tries from this device. Wait a minute and try again.",
 };
 
-export function BookingApp() {
+const CONF_KEY = "oh-confirmation";
+
+export function BookingApp({ embed = false }: { embed?: boolean } = { embed: false }) {
   const [data, setData] = useState<Availability | null>(null);
   const [loadError, setLoadError] = useState("");
   const [view, setView] = useState<View>("groups");
@@ -40,6 +45,20 @@ export function BookingApp() {
     org: "",
     topic: "",
   });
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(CONF_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as BookSlotResult;
+      if (saved && saved.ok) {
+        setResult(saved);
+        setView("done");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoadError("");
@@ -142,6 +161,11 @@ export function BookingApp() {
       if (payload.ok) {
         setResult(payload);
         setView("done");
+        try {
+          sessionStorage.setItem(CONF_KEY, JSON.stringify(payload));
+        } catch {
+          /* ignore */
+        }
         window.scrollTo(0, 0);
         return;
       }
@@ -165,6 +189,11 @@ export function BookingApp() {
     setResult(null);
     setForm({ name: "", email: "", org: "", topic: "" });
     setData(null);
+    try {
+      sessionStorage.removeItem(CONF_KEY);
+    } catch {
+      /* ignore */
+    }
     await load();
   }
 
@@ -175,9 +204,7 @@ export function BookingApp() {
     return <p className="msg">Loading availability…</p>;
   }
 
-  return (
-    <div className="wrap">
-      <Masthead event={data.event} />
+  const body = (
       <div className="body">
         {!data.open && view !== "done" ? (
           <div className="msg" style={{ padding: 0 }}>
@@ -225,14 +252,31 @@ export function BookingApp() {
           />
         )}
       </div>
+  );
+
+  if (embed) {
+    return (
+      <>
+        <Masthead event={data.event} compact />
+        {body}
+      </>
+    );
+  }
+
+  return (
+    <div className="wrap">
+      <Masthead event={data.event} />
+      {body}
     </div>
   );
 }
 
 function Masthead({
   event,
+  compact = false,
 }: {
   event: Availability["event"];
+  compact?: boolean;
 }) {
   return (
     <div
@@ -245,7 +289,13 @@ function Masthead({
         src={event.logo || SUMMIT_LOCKUP}
         alt="Forge Summit 2026"
       />
-      <h1>Office hours</h1>
+      {compact ? (
+        <p className="mast-title" style={{ fontSize: "1.35rem", fontWeight: 700, margin: "0.5rem 0 0" }}>
+          Book a meeting
+        </p>
+      ) : (
+        <h1>Office hours</h1>
+      )}
       <p>{event.location || event.name}</p>
     </div>
   );
@@ -288,7 +338,7 @@ function GroupsScreen({
         <GroupTile
           type="Cohort"
           title="Startups"
-          sub={`${cohortCount} defence technology companies. Sit down with a founder.`}
+          sub={`${cohortCount} defense technology companies. Sit down with a founder.`}
           open={cohortOpen}
           onPick={onGroup}
         />
@@ -435,9 +485,9 @@ function HostScreen({
           </div>
         </div>
         {agency.blurb ? <p className="summary">{agency.blurb}</p> : null}
-        {(agency.website || (agency.rep && agency.rep !== "TBC")) && (
+        {((agency.website && agency.website.trim()) || (agency.rep && agency.rep.trim() && agency.rep.trim().toUpperCase() !== "TBC")) && (
           <dl className="meta">
-            {agency.website ? (
+            {agency.website && agency.website.trim() ? (
               <>
                 <dt>Website</dt>
                 <dd>
@@ -451,7 +501,7 @@ function HostScreen({
                 </dd>
               </>
             ) : null}
-            {agency.rep && agency.rep !== "TBC" ? (
+            {agency.rep && agency.rep.trim() && agency.rep.trim().toUpperCase() !== "TBC" ? (
               <>
                 <dt>You will meet</dt>
                 <dd>{agency.rep}</dd>
@@ -588,6 +638,10 @@ function Done({
       <p>
         Arrive a couple of minutes early and give your name at the table. If you
         can no longer make it, tell the host so the slot can go to someone else.
+      </p>
+      <p className="mail-note">
+        If email is configured for this event, a confirmation will also be sent
+        to the address you provided. Keep your code above either way.
       </p>
       <button className="again" onClick={onAgain}>
         Book another meeting

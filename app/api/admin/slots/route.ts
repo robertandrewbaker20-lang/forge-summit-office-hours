@@ -27,14 +27,20 @@ export async function PATCH(request: Request) {
   const denied = requireAdmin(request);
   if (denied) return denied;
 
-  const body = (await request.json()) as {
+  let body: {
     id?: string;
     status?: SlotStatus;
+    expectedStatus?: SlotStatus;
     attendeeName?: string;
     attendeeEmail?: string;
     organization?: string;
     topic?: string;
   };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
+  }
 
   if (!body.id) {
     return NextResponse.json({ ok: false, error: "Provide slot id" }, { status: 400 });
@@ -45,10 +51,17 @@ export async function PATCH(request: Request) {
       { status: 400 },
     );
   }
+  if (body.expectedStatus && !STATUSES.includes(body.expectedStatus)) {
+    return NextResponse.json(
+      { ok: false, error: "expectedStatus must be Open, Booked, or Blocked" },
+      { status: 400 },
+    );
+  }
 
   const slot = await updateSlotStatus({
     id: body.id,
     status: body.status,
+    expectedStatus: body.expectedStatus,
     attendeeName: body.attendeeName,
     attendeeEmail: body.attendeeEmail,
     organization: body.organization,
@@ -57,6 +70,16 @@ export async function PATCH(request: Request) {
 
   if (!slot) {
     return NextResponse.json({ ok: false, error: "Slot not found" }, { status: 404 });
+  }
+  if ("conflict" in slot && slot.conflict) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Conflict: slot status changed",
+        slot: slot.slot,
+      },
+      { status: 409 },
+    );
   }
 
   return NextResponse.json({ ok: true, slot });

@@ -1,7 +1,7 @@
 /**
- * Preview-only fallbacks. Stay empty in git.
- * File-deploys may fill these so Vercel Preview can run without dashboard env.
- * Never import this module from client components.
+ * Forever-empty placeholders. Never put secrets here.
+ * All runtime config comes from environment variables.
+ * This module exists only so accidental imports stay inert.
  */
 export const previewDatabaseUrl = "";
 export const previewAdminApiKey = "";

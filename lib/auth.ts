@@ -1,8 +1,12 @@
+import { createHash, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
-import { previewAdminApiKey } from "./preview-env";
 
 function adminSecret(): string {
-  return process.env.ADMIN_API_KEY || previewAdminApiKey;
+  return (process.env.ADMIN_API_KEY || "").trim();
+}
+
+function sha256(value: string): Buffer {
+  return createHash("sha256").update(value, "utf8").digest();
 }
 
 export function unauthorized(): NextResponse {
@@ -27,7 +31,12 @@ export function requireAdmin(request: Request): NextResponse | null {
     ? header.slice(7).trim()
     : "";
 
-  if (!token || token !== expected) {
+  if (!token) return unauthorized();
+  try {
+    if (!timingSafeEqual(sha256(token), sha256(expected))) {
+      return unauthorized();
+    }
+  } catch {
     return unauthorized();
   }
 

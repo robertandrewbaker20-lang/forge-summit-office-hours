@@ -1,5 +1,4 @@
 import { neon, Pool } from "@neondatabase/serverless";
-import { previewDatabaseUrl } from "./preview-env";
 
 type Sql = ReturnType<typeof neon>;
 
@@ -12,7 +11,7 @@ function databaseUrl(): string {
     process.env.POSTGRES_URL ||
     process.env.POSTGRES_PRISMA_URL ||
     process.env.DATABASE_URL_UNPOOLED ||
-    previewDatabaseUrl;
+    "";
   if (!url) {
     throw new Error("DATABASE_URL is not set");
   }
@@ -31,4 +30,10 @@ export function getPool(): Pool {
     _pool = new Pool({ connectionString: databaseUrl() });
   }
   return _pool;
+}
+
+/** Test helper: reset cached clients between unit tests. */
+export function __resetDbClientsForTests(): void {
+  _sql = null;
+  _pool = null;
 }

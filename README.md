@@ -18,7 +18,7 @@ Public surfaces:
 | --- | --- |
 | `/` and `/oh` | Attendee booking |
 | `/board` | Venue display (Chicago “today”) |
-| `/ops/<OPS_SECRET>` or `/ops?key=<OPS_SECRET>` | Unlisted ops list of Booked slots |
+| `/ops/<OPS_SECRET>` or `/ops/<OPS_SECRET>` | Unlisted ops list of Booked slots |
 | `GET /api/getAvailability` | Open slots for active hosts |
 | `POST /api/bookSlot` | Race-safe Open → Booked; then confirmation + notify mail if Resend is configured |
 | `GET /api/getBoard` | Board grid |
@@ -152,7 +152,7 @@ URL pattern (bookmark the full URL):
 
 ```
 https://<preview-host>/ops/<OPS_SECRET>
-https://<preview-host>/ops?key=<OPS_SECRET>
+https://<preview-host>/ops/<OPS_SECRET>
 ```
 
 Example secret: `openssl rand -hex 24`, then prefix `oh-` if you want it obvious in the path.
@@ -174,7 +174,7 @@ If `RESEND_API_KEY` is missing, or Resend returns an error, **the booking still 
 
 ## Preview deploy
 
-This repository is the source of truth. Link it to the existing Vercel project `forge-summit-oh` and set **Preview** env only (Project → Settings → Environment Variables → environment **Preview**; do not add these to Production from this work):
+This repository is the source of truth. Link it to the existing Vercel project `forge-summit-oh` and set **Preview** and **Production** env (Project → Settings → Environment Variables). `RESEND_API_KEY` is optional — booking works without mail:
 
 | Variable | Required for | Notes |
 | --- | --- | --- |
@@ -196,3 +196,8 @@ curl -sS "$HOST/api/getAvailability" | head
 ```
 
 Expect `"open": true`, the eight Phoenix cohort hosts, and the three partner agencies (SBA, AEDC, ASBTDC). Slots are 30 minutes.
+
+
+## Ops URL
+
+Use `/ops/<OPS_SECRET>` only (path token). Query `?key=` is disabled. Keep the ops URL offline — do not paste it into GitHub or chat.

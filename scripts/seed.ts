@@ -1,7 +1,10 @@
 /**
  * Idempotent schema + seed matching the Apps Script export (Code.gs).
- * Existing Booked rows are never overwritten. Open/Blocked slots are
- * rebuilt to the current 30-minute America/Chicago grid.
+ * Runs in one transaction.
+ * - Booked and Blocked rows are preserved.
+ * - Open slots are cleared and rebuilt to the 30-minute America/Chicago grid.
+ * - Agency upserts refresh blurb/type/location/website but do NOT overwrite
+ *   active, rep_name, or rep_emails on existing rows (mid-event safe).
  */
 import { Pool } from "@neondatabase/serverless";
 import { VENUE_ROOM } from "../lib/venue";
@@ -199,6 +202,8 @@ async function main() {
   const client = await pool.connect();
 
   try {
+    await client.query("BEGIN");
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS agencies (
         id SERIAL PRIMARY KEY,
@@ -288,6 +293,7 @@ async function main() {
 
     for (const ag of AGENCIES) {
       await client.query(
+        // preserve active, rep_name, rep_emails on existing agency rows
         `INSERT INTO agencies
            (name, type, blurb, location, website, rep_name, rep_emails, calendar_id, active)
          VALUES ($1, $2, $3, $4, $5, $6, $7, '', $8)
@@ -295,10 +301,7 @@ async function main() {
            type = EXCLUDED.type,
            blurb = EXCLUDED.blurb,
            location = EXCLUDED.location,
-           website = EXCLUDED.website,
-           rep_name = EXCLUDED.rep_name,
-           rep_emails = EXCLUDED.rep_emails,
-           active = EXCLUDED.active`,
+           website = EXCLUDED.website`,
         [
           ag.name,
           ag.type,
@@ -312,21 +315,21 @@ async function main() {
       );
     }
 
-    const keep = AGENCIES.map((ag) => ag.name);
-    await client.query(
-      `UPDATE agencies SET active = false WHERE NOT (name = ANY($1::text[]))`,
-      [keep],
-    );
+    // Do not mass-deactivate agencies mid-event; only insert/update listed hosts.
 
     const booked = await client.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM slots WHERE status = 'Booked'`,
     );
+    const blocked = await client.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM slots WHERE status = 'Blocked'`,
+    );
     const keptBooked = Number(booked.rows[0]?.n || 0);
+    const keptBlocked = Number(blocked.rows[0]?.n || 0);
     const cleared = await client.query(
-      `DELETE FROM slots WHERE status <> 'Booked'`,
+      `DELETE FROM slots WHERE status = 'Open'`,
     );
     console.log(
-      `Rebuilding 30-minute grid (kept ${keptBooked} booked, cleared ${cleared.rowCount || 0} open/blocked)`,
+      `Rebuilding 30-minute grid (kept ${keptBooked} booked, ${keptBlocked} blocked, cleared ${cleared.rowCount || 0} open)`,
     );
 
     const agencyRows = await client.query<{ id: number; name: string }>(
@@ -379,8 +382,16 @@ async function main() {
       `SELECT count(*)::text AS n FROM slots`,
     );
     console.log(
-      `Seed complete (${after.rows[0]?.n || 0} slots, ${keptBooked} booked kept)`,
+      `Seed complete (${after.rows[0]?.n || 0} slots, ${keptBooked} booked + ${keptBlocked} blocked kept)`,
     );
+    await client.query("COMMIT");
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      /* ignore */
+    }
+    throw err;
   } finally {
     client.release();
     await pool.end();

@@ -1,5 +1,5 @@
-import { BookingApp } from "../components/BookingApp";
+import { redirect } from "next/navigation";
 
 export default function OfficeHoursPage() {
-  return <BookingApp />;
+  redirect("/");
 }

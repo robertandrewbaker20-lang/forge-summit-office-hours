@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:seed": "dotenv -e .env.local -- tsx scripts/seed.ts",
-    "test": "tsx --test lib/__tests__/bookSlot.test.ts",
+    "test": "tsx --test lib/__tests__/*.test.ts",
+    "db:migrate": "dotenv -e .env.local -- tsx scripts/migrate.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

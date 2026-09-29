@@ -19,6 +19,8 @@ export function BoardApp() {
   }
 
   useEffect(() => {
+    // Fetch-on-mount + poll; state is set after the network response.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
     const id = setInterval(() => void refresh(), 30000);
     return () => clearInterval(id);

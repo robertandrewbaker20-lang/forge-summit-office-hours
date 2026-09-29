@@ -32,6 +32,12 @@ export function getPool(): Pool {
   return _pool;
 }
 
+/** Test helper: inject clients (e.g. an in-memory Postgres). */
+export function __setDbClientsForTests(sql: unknown, pool: unknown): void {
+  _sql = sql as Sql;
+  _pool = pool as Pool;
+}
+
 /** Test helper: reset cached clients between unit tests. */
 export function __resetDbClientsForTests(): void {
   _sql = null;

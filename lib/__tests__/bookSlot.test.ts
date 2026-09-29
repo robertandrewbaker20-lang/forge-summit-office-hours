@@ -12,7 +12,7 @@ type Handler = {
 
 function fakePool(h: Handler) {
   const client = {
-    async query(sql: string, _params?: unknown[]) {
+    async query(sql: string) {
       const q = sql.replace(/\s+/g, " ").trim().toLowerCase();
       if (q === "begin" || q === "commit" || q === "rollback") {
         return { rows: [], rowCount: 0 };

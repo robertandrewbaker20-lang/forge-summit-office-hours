@@ -1,12 +1,15 @@
+import { randomInt } from "crypto";
 import { getPool, getSql } from "./db";
 import type { Pool } from "@neondatabase/serverless";
 import { logoFor } from "./logos";
+import { isValidEmail } from "./emails";
 import type {
   Agency,
   Availability,
   Board,
+  BookSlotFailure,
   BookSlotInput,
-  BookSlotResult,
+  BookSlotSuccess,
   EventInfo,
   HostType,
   OpsBooking,
@@ -14,10 +17,24 @@ import type {
   SlotStatus,
 } from "./types";
 
-export const TZ = "America/Chicago";
+export { TZ } from "./time";
+import { TZ } from "./time";
 
 const CONF_CHARS = "ACDEFHJKLMNPRTVWXY3479";
-const EMAIL_RE = /^[^@\s]+@[^@\s.]+\.[^@\s]{2,}$/;
+
+/** Internal result: success also carries the normalized attendee for mail. */
+export type BookSlotOutcome =
+  | (BookSlotSuccess & {
+      attendee: { name: string; email: string; org: string; topic: string };
+    })
+  | BookSlotFailure;
+
+const CONTROL_RE = /[\u0000-\u0008\u000B-\u001F\u007F]/g;
+function clean(value: unknown, max: number, singleLine = true): string {
+  let out = String(value ?? "").replace(CONTROL_RE, "");
+  if (singleLine) out = out.replace(/[\r\n\t]+/g, " ");
+  return out.trim().slice(0, max);
+}
 
 type SettingRow = { key: string; value: string };
 type AgencyRow = {
@@ -31,6 +48,7 @@ type AgencyRow = {
   rep_emails: string;
   calendar_id: string;
   active: boolean;
+  logo_url?: string | null;
 };
 type SlotRow = {
   id: string;
@@ -76,6 +94,7 @@ function mapAgency(row: AgencyRow): Agency {
     repEmails: row.rep_emails,
     calendarId: row.calendar_id,
     active: row.active,
+    logoUrl: row.logo_url || "",
   };
 }
 
@@ -135,39 +154,40 @@ export async function getAvailability(): Promise<Availability> {
   const sql = getSql();
   const cfg = await getSettingsMap();
   const agencies = await listAgencies({ activeOnly: true });
-  const activeNames = new Set(agencies.map((ag) => ag.name));
+  const activeIds = new Set(agencies.map((ag) => ag.id));
   const slotRows = (await sql`
-    SELECT id, agency_name, time_label, day_label, status
+    SELECT id, agency_id, time_label, day_label, status
     FROM slots
     WHERE status <> 'Blocked'
     ORDER BY start_at, agency_name
   `) as {
     id: string;
-    agency_name: string;
+    agency_id: number;
     time_label: string;
     day_label: string;
     status: string;
   }[];
 
   const byAgency: Record<
-    string,
+    number,
     { open: number; slots: Availability["agencies"][number]["slots"] }
   > = {};
   const dayOrder: string[] = [];
   let openTotal = 0;
 
   for (const row of slotRows) {
-    if (!activeNames.has(row.agency_name)) continue;
+    const agencyId = Number(row.agency_id);
+    if (!activeIds.has(agencyId)) continue;
     if (!dayOrder.includes(row.day_label)) dayOrder.push(row.day_label);
-    if (!byAgency[row.agency_name]) {
-      byAgency[row.agency_name] = { open: 0, slots: [] };
+    if (!byAgency[agencyId]) {
+      byAgency[agencyId] = { open: 0, slots: [] };
     }
     const isOpen = row.status === "Open";
     if (isOpen) {
-      byAgency[row.agency_name].open += 1;
+      byAgency[agencyId].open += 1;
       openTotal += 1;
     }
-    byAgency[row.agency_name].slots.push({
+    byAgency[agencyId].slots.push({
       id: row.id,
       day: row.day_label,
       time: row.time_label,
@@ -180,7 +200,7 @@ export async function getAvailability(): Promise<Availability> {
     total: openTotal,
     days: dayOrder,
     agencies: agencies.map((ag) => {
-      const data = byAgency[ag.name] || { open: 0, slots: [] };
+      const data = byAgency[ag.id] || { open: 0, slots: [] };
       return {
         name: ag.name,
         type: ag.type,
@@ -188,7 +208,7 @@ export async function getAvailability(): Promise<Availability> {
         location: ag.location,
         website: ag.website,
         rep: ag.repName,
-        logo: logoFor(ag.name),
+        logo: ag.logoUrl || logoFor(ag.name),
         open: data.open,
         slots: data.slots,
       };
@@ -200,7 +220,7 @@ export async function getAvailability(): Promise<Availability> {
 function confirmationCode(): string {
   let out = "";
   for (let i = 0; i < 6; i++) {
-    out += CONF_CHARS.charAt(Math.floor(Math.random() * CONF_CHARS.length));
+    out += CONF_CHARS.charAt(randomInt(CONF_CHARS.length));
   }
   return out;
 }
@@ -210,14 +230,15 @@ const ORG_MAX = 120;
 export async function bookSlot(
   payload: BookSlotInput,
   deps?: { pool?: Pool },
-): Promise<BookSlotResult> {
-  const name = String(payload.name || "").trim();
-  const email = String(payload.email || "").trim().toLowerCase();
-  const org = String(payload.org || "").trim().slice(0, ORG_MAX);
-  const topic = String(payload.topic || "").trim().slice(0, 500);
-  const slotId = String(payload.slotId || "").trim();
+): Promise<BookSlotOutcome> {
+  const rawName = clean(payload.name, 200);
+  const name = rawName.slice(0, 80);
+  const email = clean(payload.email, 254).toLowerCase();
+  const org = clean(payload.org, ORG_MAX);
+  const topic = clean(payload.topic, 500, false);
+  const slotId = clean(payload.slotId, 64);
 
-  if (!slotId || !name || name.length > 80 || !EMAIL_RE.test(email)) {
+  if (!slotId || !name || rawName.length > 80 || !isValidEmail(email)) {
     return { ok: false, code: "INVALID" };
   }
 
@@ -323,6 +344,7 @@ export async function bookSlot(
       day: row.day_label,
       time: row.time_label,
       room: cfg["Room"] || "",
+      attendee: { name, email, org, topic },
     };
   } catch (err) {
     try {
@@ -361,18 +383,18 @@ export async function getBoard(now = new Date()): Promise<Board> {
   const today = chicagoDate(now);
 
   const rows = (await sql`
-    SELECT agency_name, time_label, status, start_at
+    SELECT agency_id, time_label, status, start_at
     FROM slots
     ORDER BY start_at, agency_name
   `) as {
-    agency_name: string;
+    agency_id: number;
     time_label: string;
     status: string;
     start_at: string | Date;
   }[];
 
   const times: string[] = [];
-  const cells: Record<string, Record<string, SlotStatus>> = {};
+  const cells: Record<number, Record<string, SlotStatus>> = {};
   let any = false;
 
   for (const row of rows) {
@@ -380,8 +402,9 @@ export async function getBoard(now = new Date()): Promise<Board> {
     if (chicagoDate(start) !== today) continue;
     any = true;
     if (!times.includes(row.time_label)) times.push(row.time_label);
-    if (!cells[row.agency_name]) cells[row.agency_name] = {};
-    cells[row.agency_name][row.time_label] = asStatus(row.status);
+    const agencyId = Number(row.agency_id);
+    if (!cells[agencyId]) cells[agencyId] = {};
+    cells[agencyId][row.time_label] = asStatus(row.status);
   }
 
   return {
@@ -390,7 +413,7 @@ export async function getBoard(now = new Date()): Promise<Board> {
     agencies: agencies.map((ag) => ({
       name: ag.name,
       type: ag.type,
-      cells: cells[ag.name] || {},
+      cells: cells[ag.id] || {},
     })),
     room: cfg["Room"] || "",
     event: cfg["Event Name"] || "Forge Summit",

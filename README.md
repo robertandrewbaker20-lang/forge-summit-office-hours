@@ -10,7 +10,7 @@ Brand voice matches [forge.institute/summit](https://www.forge.institute/summit)
 
 - Next.js App Router (TypeScript) + Tailwind
 - Neon Postgres (`flat-hat-60967335`, production branch `br-aged-thunder-b5sqlxj2`)
-- Vercel Preview only for this work (no production promote, no custom domain)
+- Vercel project `forge-summit-oh` (Production: https://forge-summit-oh.vercel.app)
 
 Public surfaces:
 
@@ -18,7 +18,8 @@ Public surfaces:
 | --- | --- |
 | `/` and `/oh` | Attendee booking |
 | `/board` | Venue display (Chicago “today”) |
-| `/ops/<OPS_SECRET>` or `/ops/<OPS_SECRET>` | Unlisted ops list of Booked slots |
+| `/admin` | Password-protected admin (agencies, notification emails, bookings, email log) |
+| `/ops/<OPS_SECRET>` | Unlisted ops list of Booked slots |
 | `GET /api/getAvailability` | Open slots for active hosts |
 | `POST /api/bookSlot` | Race-safe Open → Booked; then confirmation + notify mail if Resend is configured |
 | `GET /api/getBoard` | Board grid |
@@ -37,6 +38,7 @@ Set in `.env.local` (never commit these):
 
 ```
 DATABASE_URL=          # Neon pooled connection string
+ADMIN_PASSWORD=        # password for the /admin page (min 12 chars)
 ADMIN_API_KEY=         # long random secret for /api/admin/*
 OPS_SECRET=            # long random URL-safe secret for /ops
 RESEND_API_KEY=        # optional; booking still works if unset
@@ -62,6 +64,24 @@ Open [http://localhost:3000](http://localhost:3000). Board: [http://localhost:30
 - `POST /api/bookSlot` takes `{ slotId, name, email, org?, topic? }`.
 - Email cap comes from Settings `Max Bookings Per Email` (seeded at 2).
 - Concurrent bookings for the same email are serialized with `pg_advisory_xact_lock(hashtext(email))`. The Open → Booked update is `WHERE id = $1 AND status = 'Open'` so a double-tap returns `TAKEN`.
+
+## Admin page (`/admin`)
+
+Sign in with `ADMIN_PASSWORD`. The session is an httpOnly, HMAC-signed cookie (7 days); changing `ADMIN_PASSWORD` in Vercel and redeploying signs everyone out. The password never reaches the browser bundle.
+
+On the page you can:
+
+- **Add an agency/host** (name, Support agency or Startup, contact name, notification emails, description, location, website, logo). A full 30-minute grid for Oct 13–14 is created automatically from the `schedule` table.
+- **Edit** any agency, including renaming it (existing bookings stay attached by id) and changing the notification email list (one per line or comma-separated, up to 10).
+- **Deactivate / Activate** (hidden from attendees; bookings kept). **Delete** only appears when an agency has no bookings.
+- **See and cancel bookings** (cancel re-opens the slot; the attendee is not emailed).
+- **Open / close booking**, send a **test email**, and view the **email delivery log** (`mail_log` table).
+
+Agencies live in the `agencies` table (the DB is the source of truth). `scripts/seed.ts` only bootstraps missing hosts and never overwrites edits; do not re-run it against production once `/admin` is in use (it would re-add deleted hosts).
+
+## Migrations
+
+`lib/schema.ts` holds idempotent, additive migrations (logo_url/created_at/updated_at columns, `mail_log`, a unique index on `(agency_id, start_at)`, a unique confirmation index, and a status CHECK). They run automatically on the first request per server instance, or manually with `npm run db:migrate`.
 
 ## Admin API
 
@@ -163,14 +183,15 @@ If `OPS_SECRET` is not set on that deployment, `/ops` is 404 for every token.
 
 ## Booking email
 
-On a successful `POST /api/bookSlot` the app tries to send two Resend messages:
+On a successful `POST /api/bookSlot` the app sends (via Resend, after the response):
 
-1. **Confirmation** to the attendee — host, time, Ballroom C / room, confirmation code, and the form fields they submitted.
-2. **Notify** to `NOTIFY_EMAIL` (default `robertandrewbaker20@gmail.com`) with the same details.
+1. **Confirmation** to the attendee.
+2. **Host notification** to the booked agency's notification emails (set in `/admin`), with Reply-To set to the attendee.
+3. **Admin copy** to `NOTIFY_EMAIL` (default `robertandrewbaker20@gmail.com`; skipped if it's already one of the host addresses).
 
-If `RESEND_API_KEY` is missing, or Resend returns an error, **the booking still succeeds**. The function logs `Booking mail skipped: …` or `Booking mail failed; booking still succeeded.` and continues. Mail is never a hard-fail on book.
+Every send is logged to the `mail_log` table (visible at `/admin#mail`) and to the function log. If `RESEND_API_KEY` is missing or Resend errors, **the booking still succeeds**.
 
-`FROM_EMAIL` is the Resend `from` header. The Resend test sender is `Forge Summit Office Hours <beth.t@example.com>`. Replace it with a verified domain address when you have one.
+`FROM_EMAIL` must be an address on a domain verified in Resend. Resend's shared test sender only delivers to the Resend account owner, so agencies will not receive mail until a domain is verified.
 
 ## Preview deploy
 
@@ -179,6 +200,7 @@ This repository is the source of truth. Link it to the existing Vercel project `
 | Variable | Required for | Notes |
 | --- | --- | --- |
 | `DATABASE_URL` | Booking + ops list | Neon pooled string for `br-aged-thunder-b5sqlxj2` |
+| `ADMIN_PASSWORD` | `/admin` page | Min 12 chars. Set as a Sensitive env var |
 | `ADMIN_API_KEY` | `/api/admin/*` | Bearer secret |
 | `OPS_SECRET` | Unlisted `/ops` page | Long random, URL-safe. Bookmark `$HOST/ops/$OPS_SECRET` |
 | `RESEND_API_KEY` | Mail | If absent, book still succeeds; mail is skipped and logged |
@@ -187,7 +209,6 @@ This repository is the source of truth. Link it to the existing Vercel project `
 
 After changing Preview env, redeploy the Preview (or push a commit) so the new values load.
 
-Do not promote to Production from this work. Do not attach forge.institute DNS.
 
 After Preview is up:
 

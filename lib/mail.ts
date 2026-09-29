@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { VENUE_ROOM } from "./venue";
+import { isValidEmail } from "./emails";
 
 export type BookingMailPayload = {
   name: string;
@@ -72,89 +73,159 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-async function sendOne(
-  resend: Resend,
-  input: { to: string; subject: string; text: string; html: string },
-): Promise<void> {
-  const { error } = await resend.emails.send({
-    from: fromEmail(),
-    to: input.to,
-    subject: input.subject,
-    text: input.text,
-    html: input.html,
-  });
-  if (error) {
-    throw new Error(error.message || "Resend send failed");
-  }
-}
+export type MailKind = "attendee" | "host" | "admin" | "test";
 
-async function sendBookingEmailsInner(booking: BookingMailPayload): Promise<void> {
-  const apiKey = resendApiKey();
-  if (!apiKey) {
-    console.warn(
-      "Booking mail skipped: RESEND_API_KEY is not set. Booking still succeeded.",
-    );
-    return;
-  }
+export type MailResult = {
+  kind: MailKind;
+  to: string[];
+  status: "sent" | "failed" | "skipped";
+  id?: string;
+  error?: string;
+};
 
+export type SendFn = (input: {
+  from: string;
+  to: string[];
+  replyTo?: string;
+  subject: string;
+  text: string;
+  html: string;
+}) => Promise<{ id?: string }>;
+
+export type MailDeps = {
+  send?: SendFn;
+  record?: (slotId: string | null, result: MailResult) => Promise<void>;
+};
+
+function resendSender(apiKey: string): SendFn {
   const resend = new Resend(apiKey);
-  const lines = bookingLines(booking).join("\n");
-  const room = field(booking.room, VENUE_ROOM);
-
-  const attendeeTo = booking.email.trim();
-  if (attendeeTo) {
-    try {
-      await sendOne(resend, {
-        to: attendeeTo,
-        subject: `Office hours confirmed — ${field(booking.agency)}, ${field(booking.day)} ${field(booking.time)}`,
-        text: `You are booked.\n\n${lines}\n\nMeetings are in ${room}. Each group has a table sign.`,
-        html: bookingHtml(
-          booking,
-          "You are booked. Give your name at the table a couple of minutes early.",
-        ),
-      });
-    } catch (err) {
-      console.error(
-        "Booking confirmation mail failed; booking still succeeded.",
-        err,
-      );
-    }
-  } else {
-    console.warn(
-      "Booking confirmation mail skipped: attendee email is empty. Booking still succeeded.",
-    );
-  }
-
-  const notifyTo = notifyEmail();
-  if (!notifyTo) {
-    console.warn(
-      "Booking notify mail skipped: NOTIFY_EMAIL is not set. Booking still succeeded.",
-    );
-    return;
-  }
-
-  try {
-    await sendOne(resend, {
-      to: notifyTo,
-      subject: `New office hours booking — ${field(booking.name)} / ${field(booking.agency)}`,
-      text: `A slot was booked.\n\n${lines}`,
-      html: bookingHtml(booking, "A new office hours slot was booked."),
+  return async (input) => {
+    const { data, error } = await resend.emails.send({
+      from: input.from,
+      to: input.to,
+      replyTo: input.replyTo,
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
     });
+    if (error) throw new Error(error.message || "Resend send failed");
+    return { id: data?.id };
+  };
+}
+
+async function deliver(
+  send: SendFn | null,
+  kind: MailKind,
+  to: string[],
+  message: { subject: string; text: string; html: string; replyTo?: string },
+): Promise<MailResult> {
+  const recipients = to.map((t) => t.trim().toLowerCase()).filter(isValidEmail);
+  if (!recipients.length) {
+    return { kind, to: [], status: "skipped", error: "no valid recipients" };
+  }
+  if (!send) {
+    return { kind, to: recipients, status: "skipped", error: "RESEND_API_KEY is not set" };
+  }
+  try {
+    const { id } = await send({ from: fromEmail(), to: recipients, ...message });
+    return { kind, to: recipients, status: "sent", id };
   } catch (err) {
-    console.error("Booking notify mail failed; booking still succeeded.", err);
+    return {
+      kind,
+      to: recipients,
+      status: "failed",
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
-/** Never throws. Missing keys or provider errors skip mail; the book stands. */
+export function adminCopyEmail(): string {
+  return notifyEmail();
+}
+
+/**
+ * Sends attendee confirmation, host/agency notification and optional admin
+ * copy. Never throws: a mail problem must never undo or fail a booking.
+ */
 export async function sendBookingEmails(
   booking: BookingMailPayload,
-): Promise<void> {
+  opts: { slotId?: string; hostEmails?: string[]; deps?: MailDeps } = {},
+): Promise<MailResult[]> {
+  const results: MailResult[] = [];
   try {
-    await sendBookingEmailsInner(booking);
-  } catch (err) {
-    console.error(
-      "Booking mail failed; booking was not rolled back.",
-      err,
+    const apiKey = resendApiKey();
+    const send = opts.deps?.send ?? (apiKey ? resendSender(apiKey) : null);
+    const lines = bookingLines(booking).join("\n");
+    const room = field(booking.room, VENUE_ROOM);
+    const hostEmails = opts.hostEmails ?? [];
+
+    results.push(
+      await deliver(send, "attendee", [booking.email], {
+        subject: `Office hours confirmed — ${field(booking.agency)}, ${field(booking.day)} ${field(booking.time)}`,
+        text: `You are booked.\n\n${lines}\n\nMeetings are in ${room}. Each group has a table sign.`,
+        html: bookingHtml(booking, "You are booked. Give your name at the table a couple of minutes early."),
+      }),
     );
+
+    const attendeeReplyTo = isValidEmail(booking.email) ? booking.email.trim() : undefined;
+    results.push(
+      await deliver(send, "host", hostEmails, {
+        subject: `New office hours booking with ${field(booking.agency)} — ${field(booking.day)} ${field(booking.time)}`,
+        text: `Someone booked time with ${field(booking.agency)} at Forge Summit office hours. Reply to this email to reach them.\n\n${lines}`,
+        html: bookingHtml(
+          booking,
+          `Someone booked time with ${field(booking.agency)} at Forge Summit office hours. Reply to this email to reach them.`,
+        ),
+        replyTo: attendeeReplyTo,
+      }),
+    );
+
+    const admin = notifyEmail();
+    const adminTo = admin && !hostEmails.includes(admin.toLowerCase()) ? [admin] : [];
+    if (adminTo.length) {
+      results.push(
+        await deliver(send, "admin", adminTo, {
+          subject: `New office hours booking — ${field(booking.name)} / ${field(booking.agency)}`,
+          text: `A slot was booked.\nHost notified: ${hostEmails.join(", ") || "(no notification email on file)"}\n\n${lines}`,
+          html: bookingHtml(
+            booking,
+            `A new office hours slot was booked. Host notified: ${hostEmails.join(", ") || "(no notification email on file)"}.`,
+          ),
+          replyTo: attendeeReplyTo,
+        }),
+      );
+    }
+  } catch (err) {
+    console.error("Booking mail failed; booking was not rolled back.", err);
   }
+
+  for (const r of results) {
+    const line = { kind: r.kind, to: r.to, status: r.status, id: r.id, error: r.error, slotId: opts.slotId };
+    if (r.status === "failed") console.error("Booking mail failed; booking still succeeded.", line);
+    else if (r.status === "skipped") console.warn("Booking mail skipped.", line);
+    else console.log("Booking mail sent.", line);
+    try {
+      await opts.deps?.record?.(opts.slotId ?? null, r);
+    } catch (err) {
+      console.error("mail record failed", err);
+    }
+  }
+  return results;
+}
+
+/** Admin "send test email" helper. */
+export async function sendTestEmail(to: string[], deps?: MailDeps): Promise<MailResult> {
+  const apiKey = resendApiKey();
+  const send = deps?.send ?? (apiKey ? resendSender(apiKey) : null);
+  const result = await deliver(send, "test", to, {
+    subject: "Forge Summit office hours — test notification",
+    text: "This is a test from the office hours admin page. If you got it, booking notifications will reach this address.",
+    html: `<p>This is a test from the office hours admin page. If you got it, booking notifications will reach this address.</p>`,
+  });
+  try {
+    await deps?.record?.(null, result);
+  } catch (err) {
+    console.error("mail record failed", err);
+  }
+  return result;
 }

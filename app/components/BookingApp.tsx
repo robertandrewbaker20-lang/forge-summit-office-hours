@@ -52,6 +52,8 @@ export function BookingApp({ embed = false }: { embed?: boolean } = { embed: fal
       if (!raw) return;
       const saved = JSON.parse(raw) as BookSlotResult;
       if (saved && saved.ok) {
+        // Restore from sessionStorage (client-only) after hydration.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setResult(saved);
         setView("done");
       }
@@ -76,6 +78,8 @@ export function BookingApp({ embed = false }: { embed?: boolean } = { embed: fal
   }, []);
 
   useEffect(() => {
+    // Fetch-on-mount; state is set after the network response.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 

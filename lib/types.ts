@@ -12,6 +12,7 @@ export type Agency = {
   repEmails: string;
   calendarId: string;
   active: boolean;
+  logoUrl: string;
 };
 
 export type Slot = {

@@ -3,8 +3,9 @@
  * Runs in one transaction.
  * - Booked and Blocked rows are preserved.
  * - Open slots are cleared and rebuilt to the 30-minute America/Chicago grid.
- * - Agency upserts refresh blurb/type/location/website but do NOT overwrite
- *   active, rep_name, or rep_emails on existing rows (mid-event safe).
+ * - Bootstrap only: inserts hosts that do not exist yet. Existing agencies are
+ *   never modified (manage them at /admin). Deleted agencies would be re-added,
+ *   so do not re-run this against production after the admin page is in use.
  */
 import { Pool } from "@neondatabase/serverless";
 import { VENUE_ROOM } from "../lib/venue";
@@ -293,15 +294,11 @@ async function main() {
 
     for (const ag of AGENCIES) {
       await client.query(
-        // preserve active, rep_name, rep_emails on existing agency rows
+        // The DB (edited via /admin) is the source of truth; only insert missing hosts.
         `INSERT INTO agencies
            (name, type, blurb, location, website, rep_name, rep_emails, calendar_id, active)
          VALUES ($1, $2, $3, $4, $5, $6, $7, '', $8)
-         ON CONFLICT (name) DO UPDATE SET
-           type = EXCLUDED.type,
-           blurb = EXCLUDED.blurb,
-           location = EXCLUDED.location,
-           website = EXCLUDED.website`,
+         ON CONFLICT (name) DO NOTHING`,
         [
           ag.name,
           ag.type,
@@ -362,7 +359,7 @@ async function main() {
             `INSERT INTO slots
                (id, agency_id, agency_name, start_at, end_at, time_label, day_label, status)
              VALUES ($1, $2, $3, $4, $5, $6, $7, 'Open')
-             ON CONFLICT (id) DO NOTHING`,
+             ON CONFLICT DO NOTHING`,
             [
               id,
               ag.id,

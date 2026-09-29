@@ -1,0 +1,11 @@
+import Link from "next/link";
+
+export default function NotFound() {
+  return (
+    <main className="mx-auto max-w-md px-6 py-16 text-center">
+      <h1 className="mb-2 text-2xl font-bold">Page not found</h1>
+      <p className="mb-6 text-slate-600">That page does not exist.</p>
+      <Link className="underline" href="/">Book office hours</Link>
+    </main>
+  );
+}

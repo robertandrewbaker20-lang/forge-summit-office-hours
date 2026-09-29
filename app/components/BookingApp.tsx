@@ -390,7 +390,8 @@ function ListScreen({
   const isCohort = type === "Cohort";
   return (
     <>
-      <button className="back" onClick={onBack}>
+      <button type="button" className="back" onClick={onBack}>
+        <span className="back-arrow" aria-hidden="true">←</span>
         Back
       </button>
       <h2>{isCohort ? "Startups" : "Support agencies"}</h2>
@@ -459,7 +460,8 @@ function HostScreen({
 
   return (
     <>
-      <button className="back" onClick={onBack}>
+      <button type="button" className="back" onClick={onBack}>
+        <span className="back-arrow" aria-hidden="true">←</span>
         Back to {isCohort ? "startups" : "support agencies"}
       </button>
       <div className={`detail${isCohort ? " cohort" : ""}`}>

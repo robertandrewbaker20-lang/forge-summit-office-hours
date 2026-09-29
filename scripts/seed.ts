@@ -2,15 +2,16 @@
  * Idempotent schema + seed matching the Apps Script export (Code.gs).
  * Runs in one transaction.
  * - Booked and Blocked rows are preserved.
- * - Open slots are cleared and rebuilt to the 30-minute America/Chicago grid.
+ * - Open slots are rebuilt to the 15-minute America/Chicago grid (lib/regrid.ts).
  * - Bootstrap only: inserts hosts that do not exist yet. Existing agencies are
  *   never modified (manage them at /admin). Deleted agencies would be re-added,
  *   so do not re-run this against production after the admin page is in use.
  */
 import { Pool } from "@neondatabase/serverless";
 import { VENUE_ROOM } from "../lib/venue";
+import { regridAll, type Queryable } from "../lib/regrid";
 
-const TZ_OFFSET = "-05:00"; // America/Chicago, CDT (Oct 2026)
+const SLOT_MINUTES = 15;
 
 type HostType = "Partner" | "Cohort";
 
@@ -152,7 +153,7 @@ const SETTINGS: [string, string][] = [
   ["Location", "Downtown North Little Rock, Arkansas"],
   ["Room", VENUE_ROOM],
   ["Logo URL", ""],
-  ["Slot Minutes", "30"],
+  ["Slot Minutes", String(SLOT_MINUTES)],
   ["Buffer Minutes", "0"],
   ["Max Bookings Per Email", "2"],
   ["Admin Email", "Robertandrewbaker20@gmail.com"],
@@ -174,24 +175,6 @@ const SCHEDULE = [
     label: "Wednesday, Oct 14",
   },
 ];
-
-function slug(name: string): string {
-  const raw = String(name).toLowerCase().replace(/[^a-z0-9]+/g, "");
-  // Live Neon IDs use Apps Script slice(0, 14) except NTS (full 15-char slug).
-  if (raw === "ntsinnovations") return raw;
-  return raw.slice(0, 14) || "x";
-}
-
-function timeLabel(hours: number, minutes: number): string {
-  const period = hours >= 12 ? "PM" : "AM";
-  const h = hours % 12 || 12;
-  return `${h}:${String(minutes).padStart(2, "0")} ${period}`;
-}
-
-function parseHm(value: string): [number, number] {
-  const [h, m] = value.split(":").map(Number);
-  return [h, m];
-}
 
 async function main() {
   const url = process.env.DATABASE_URL;
@@ -314,66 +297,15 @@ async function main() {
 
     // Do not mass-deactivate agencies mid-event; only insert/update listed hosts.
 
-    const booked = await client.query<{ n: string }>(
-      `SELECT count(*)::text AS n FROM slots WHERE status = 'Booked'`,
-    );
-    const blocked = await client.query<{ n: string }>(
-      `SELECT count(*)::text AS n FROM slots WHERE status = 'Blocked'`,
-    );
-    const keptBooked = Number(booked.rows[0]?.n || 0);
-    const keptBlocked = Number(blocked.rows[0]?.n || 0);
-    const cleared = await client.query(
-      `DELETE FROM slots WHERE status = 'Open'`,
-    );
+    await client.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS covered_by TEXT`);
+    // Shared with the admin regrid: bookings are never touched; grid slots
+    // overlapping a booking are kept as covered (Blocked) rows.
+    const report = await regridAll(client as unknown as Queryable, SLOT_MINUTES);
+    const keptBooked = report.after.Booked || 0;
+    const keptBlocked = (report.after.Blocked || 0) - report.covered;
     console.log(
-      `Rebuilding 30-minute grid (kept ${keptBooked} booked, ${keptBlocked} blocked, cleared ${cleared.rowCount || 0} open)`,
+      `Rebuilt ${SLOT_MINUTES}-minute grid (kept ${keptBooked} booked, inserted ${report.inserted}, covered ${report.covered})`,
     );
-
-    const agencyRows = await client.query<{ id: number; name: string }>(
-      `SELECT id, name FROM agencies ORDER BY id`,
-    );
-    const slotMinutes = 30;
-    const stepMinutes = 30;
-
-    for (const day of SCHEDULE) {
-      const [endH, endM] = parseHm(day.end);
-      const endTotal = endH * 60 + endM;
-
-      for (const ag of agencyRows.rows) {
-        const [startH, startM] = parseHm(day.start);
-        let cursor = startH * 60 + startM;
-        while (cursor + slotMinutes <= endTotal) {
-          const hours = Math.floor(cursor / 60);
-          const minutes = cursor % 60;
-          const hh = String(hours).padStart(2, "0");
-          const mm = String(minutes).padStart(2, "0");
-          const stamp = `${day.date.replace(/-/g, "")}-${hh}${mm}`;
-          const id = `${slug(ag.name)}-${stamp}`;
-          const startAt = `${day.date}T${hh}:${mm}:00${TZ_OFFSET}`;
-          const endMinutes = cursor + slotMinutes;
-          const endHours = Math.floor(endMinutes / 60);
-          const endMins = endMinutes % 60;
-          const endAt = `${day.date}T${String(endHours).padStart(2, "0")}:${String(endMins).padStart(2, "0")}:00${TZ_OFFSET}`;
-
-          await client.query(
-            `INSERT INTO slots
-               (id, agency_id, agency_name, start_at, end_at, time_label, day_label, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'Open')
-             ON CONFLICT DO NOTHING`,
-            [
-              id,
-              ag.id,
-              ag.name,
-              startAt,
-              endAt,
-              timeLabel(hours, minutes),
-              day.label,
-            ],
-          );
-          cursor += stepMinutes;
-        }
-      }
-    }
 
     const after = await client.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM slots`,

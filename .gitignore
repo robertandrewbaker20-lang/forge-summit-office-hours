@@ -45,3 +45,6 @@ next-env.d.ts
 .local-ops-secret.txt
 .local-admin-password.txt
 .local-gmail-app-password.txt
+
+# local DB backups (attendee PII)
+/backups/

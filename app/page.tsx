@@ -20,7 +20,7 @@ export default function HomePage() {
         <h1>Office hours</h1>
         <p className="mast-meta">Oct 13–14 · Ballroom C · North Little Rock</p>
         <p className="lede lede-on-dark">
-          Book thirty minutes with a startup founder or a support agency.
+          Book 15 minutes with a startup founder or a support agency.
         </p>
         <p className="lede-on-dark mast-hint">
           Choose who you meet, then pick a time.

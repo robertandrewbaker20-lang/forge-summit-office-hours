@@ -20,7 +20,7 @@ const inter = Inter({
 
 const TITLE = "Office Hours — Forge Summit 2026";
 const DESCRIPTION =
-  "Book thirty minutes with a startup founder or a support agency in Ballroom C, North Little Rock — October 13–14, 2026.";
+  "Book 15 minutes with a startup founder or a support agency in Ballroom C, North Little Rock — October 13–14, 2026.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),

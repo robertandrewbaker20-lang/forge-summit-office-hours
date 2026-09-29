@@ -1,7 +1,7 @@
 import type { PoolClient } from "@neondatabase/serverless";
 import { getPool, getSql } from "./db";
 import { formatEmailList, parseEmailList } from "./emails";
-import { chicagoWallTimeToDate, parseHm, timeLabel } from "./time";
+import { generateGridForAgency, releaseCovered, type Queryable } from "./regrid";
 import type { HostType } from "./types";
 
 export type AdminAgency = {
@@ -172,47 +172,14 @@ export async function listAdminAgencies(): Promise<AdminAgency[]> {
   }));
 }
 
-/** Build the Open slot grid for one agency from the `schedule` table. */
+/** Build the Open slot grid for one agency (current Slot Minutes, default 15). */
 export async function generateSlotsForAgency(
   client: PoolClient,
   agencyId: number,
-  agencyName: string,
+  _agencyName?: string,
 ): Promise<number> {
-  const cfg = await client.query<{ value: string }>(
-    `SELECT value FROM settings WHERE key = 'Slot Minutes'`,
-  );
-  const slotMinutes = Math.max(5, Number(cfg.rows[0]?.value || 30) || 30);
-  const sched = await client.query<{
-    date: string;
-    start_time: string;
-    end_time: string;
-    day_label: string;
-  }>(`SELECT date, start_time, end_time, day_label FROM schedule ORDER BY date, start_time`);
-  let created = 0;
-  for (const day of sched.rows) {
-    const endTotal = parseHm(day.end_time);
-    for (let cursor = parseHm(day.start_time); cursor + slotMinutes <= endTotal; cursor += slotMinutes) {
-      const hh = String(Math.floor(cursor / 60)).padStart(2, "0");
-      const mm = String(cursor % 60).padStart(2, "0");
-      const id = `ag${agencyId}-${day.date.replace(/-/g, "")}-${hh}${mm}`;
-      const res = await client.query(
-        `INSERT INTO slots (id, agency_id, agency_name, start_at, end_at, time_label, day_label, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'Open')
-         ON CONFLICT DO NOTHING`,
-        [
-          id,
-          agencyId,
-          agencyName,
-          chicagoWallTimeToDate(day.date, cursor).toISOString(),
-          chicagoWallTimeToDate(day.date, cursor + slotMinutes).toISOString(),
-          timeLabel(cursor),
-          day.day_label,
-        ],
-      );
-      created += res.rowCount || 0;
-    }
-  }
-  return created;
+  void _agencyName;
+  return generateGridForAgency(client as unknown as Queryable, agencyId);
 }
 
 export async function createAgency(input: AgencyInput): Promise<{ id: number; slots: number }> {
@@ -306,15 +273,20 @@ export async function listAdminBookings(): Promise<AdminBooking[]> {
 
 /** Cancel a booking: the slot goes back to Open and attendee data is cleared. */
 export async function cancelBooking(slotId: string): Promise<boolean> {
-  const sql = getSql();
-  const rows = (await sql`
-    UPDATE slots
-    SET status = 'Open', attendee_name = NULL, attendee_email = NULL,
-        organization = NULL, topic = NULL, booked_at = NULL, confirmation = NULL
-    WHERE id = ${slotId} AND status = 'Booked'
-    RETURNING id
-  `) as unknown[];
-  return rows.length === 1;
+  return tx(async (client) => {
+    const res = await client.query(
+      `UPDATE slots
+       SET status = 'Open', attendee_name = NULL, attendee_email = NULL,
+           organization = NULL, topic = NULL, booked_at = NULL, confirmation = NULL
+       WHERE id = $1 AND status = 'Booked'
+       RETURNING id`,
+      [slotId],
+    );
+    if (res.rows.length !== 1) return false;
+    // A legacy 30-minute booking frees its second 15-minute slot too.
+    await releaseCovered(client as unknown as Queryable, slotId);
+    return true;
+  });
 }
 
 /** Notification recipients for the host of a booked slot. */

@@ -1,6 +1,6 @@
 # Forge Summit 2026 — Office Hours
 
-Phone-first booking for the 2026 Forge Summit (13–14 October, America/Chicago) in Ballroom C, Downtown North Little Rock. Attendees scan a QR code, pick a Phoenix 2026 cohort host or a partner agency, and take a 30-minute slot. Each group has a table sign.
+Phone-first booking for the 2026 Forge Summit (13–14 October, America/Chicago) in Ballroom C, Downtown North Little Rock. Attendees scan a QR code, pick a Phoenix 2026 cohort host or a partner agency, and take a 15-minute slot. Each group has a table sign.
 
 Mid-event ops run through a Bearer-authenticated admin API. Flip hosts Active, close booking, or Block a slot without a redeploy.
 
@@ -56,11 +56,15 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Board: [http://localhost:3000/board](http://localhost:3000/board).
 
-`npm run db:seed` creates `agencies`, `settings`, `schedule`, and `slots` if they are missing, upserts the Apps Script host list (partners Active), and rebuilds the 08:00–16:00 / 30-minute grid. Existing Booked rows are left alone.
+`npm run db:seed` creates `agencies`, `settings`, `schedule`, and `slots` if they are missing, upserts the Apps Script host list (partners Active), and rebuilds the 08:00–16:00 / 15-minute grid via `lib/regrid.ts`. Existing Booked rows are left alone.
 
 ## Booking rules
 
-- Slot length 30 minutes, back-to-back (`:00` / `:30`), 08:00–16:00 America/Chicago. Meetings are in Ballroom C.
+- Slot length 15 minutes (Settings `Slot Minutes`), back-to-back (`:00` / `:15` / `:30` / `:45`), 08:00–16:00 America/Chicago. Meetings are in Ballroom C.
+- Bookings made on the old 30-minute grid keep their original start/end. The 15-minute slot they overlap is stored as `Blocked` with `covered_by = <booking slot id>` (shown to attendees as taken); cancelling the booking trims it to 15 minutes and re-opens the covered slot.
+- A Postgres exclusion constraint (`slots_booked_no_overlap`, btree_gist) makes overlapping Booked rows for one host impossible; `bookSlot` also checks for overlap.
+- Per-host "N times open" counts only future, Open slots of active hosts.
+- Changing the slot length: `POST /api/admin/regrid` `{ "slotMinutes": 15, "dryRun": true }` (admin session or `Bearer ADMIN_API_KEY`) reports what would change and rolls back; send `"dryRun": false, "backupTable": "slots_backup_YYYYMMDD"` to apply. `GET /api/admin/export` returns a JSON backup of agencies, slots, settings and schedule.
 - `POST /api/bookSlot` takes `{ slotId, name, email, org?, topic? }`.
 - Email cap comes from Settings `Max Bookings Per Email` (seeded at 2).
 - Concurrent bookings for the same email are serialized with `pg_advisory_xact_lock(hashtext(email))`. The Open → Booked update is `WHERE id = $1 AND status = 'Open'` so a double-tap returns `TAKEN`.
@@ -71,7 +75,7 @@ Sign in with `ADMIN_PASSWORD`. The session is an httpOnly, HMAC-signed cookie (7
 
 On the page you can:
 
-- **Add an agency/host** (name, Support agency or Startup, contact name, notification emails, description, location, website, logo). A full 30-minute grid for Oct 13–14 is created automatically from the `schedule` table.
+- **Add an agency/host** (name, Support agency or Startup, contact name, notification emails, description, location, website, logo). A full 15-minute grid for Oct 13–14 is created automatically from the `schedule` table.
 - **Edit** any agency, including renaming it (existing bookings stay attached by id) and changing the notification email list (one per line or comma-separated, up to 10).
 - **Deactivate / Activate** (hidden from attendees; bookings kept). **Delete** only appears when an agency has no bookings.
 - **See and cancel bookings** (cancel re-opens the slot; the attendee is not emailed).
@@ -216,7 +220,7 @@ After Preview is up:
 curl -sS "$HOST/api/getAvailability" | head
 ```
 
-Expect `"open": true`, the eight Phoenix cohort hosts, and the three partner agencies (SBA, AEDC, ASBTDC). Slots are 30 minutes.
+Expect `"open": true`, the eight Phoenix cohort hosts, and the three partner agencies (SBA, AEDC, ASBTDC). Slots are 15 minutes.
 
 
 ## Ops URL

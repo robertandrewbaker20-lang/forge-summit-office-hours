@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { CURTAIN, SUMMIT_LOCKUP, logoFor } from "@/lib/logos";
 import { VENUE_ROOM } from "@/lib/venue";
+import { openTimesLabel } from "@/lib/openTimes";
 import type {
   Availability,
   AvailabilityAgency,
@@ -331,7 +332,7 @@ function GroupsScreen({
     <>
       {embed ? null : (
         <p className="lede">
-          Book thirty minutes with a startup founder or a support agency.
+          Book 15 minutes with a startup founder or a support agency.
           Choose who you meet, then pick a time.
         </p>
       )}
@@ -379,10 +380,7 @@ function GroupTile({
     >
       <span className="group-top">
         <span className="group-name">{title}</span>
-        <span className="group-n">
-          {open || "0"}
-          <small>{open === 1 ? "time open" : "times open"}</small>
-        </span>
+        {open ? null : <span className="group-n zero">Fully booked</span>}
       </span>
       <span className="group-sub">{sub}</span>
     </button>
@@ -428,7 +426,7 @@ function ListScreen({
               {a.location ? <span className="row-where">{a.location}</span> : null}
             </span>
             <span className={`row-n${a.open ? "" : " zero"}`}>
-              {a.open || "Full"}
+              {a.open || "Fully booked"}
             </span>
           </button>
         );
@@ -517,6 +515,9 @@ function HostScreen({
 
       <VenueNote />
       <h3>Available times</h3>
+      <p className={`host-open${agency.open ? "" : " zero"}`} aria-live="polite">
+        {openTimesLabel(agency.open)}
+      </p>
       <p className="tz-note">All times Central (CT)</p>
       {days.length > 1 && (
         <div className="days">

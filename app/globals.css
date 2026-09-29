@@ -552,6 +552,25 @@ h3 {
   font-weight: 400;
 }
 
+.host-open {
+  margin: -4px 0 10px;
+  font-family: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--azure);
+  font-variant-numeric: tabular-nums;
+}
+
+.host-open.zero {
+  color: var(--taken);
+}
+
+.group-n.zero {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--taken);
+}
+
 .tz-note {
   margin: -6px 0 12px;
   color: var(--ash);

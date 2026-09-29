@@ -20,6 +20,19 @@ const STATEMENTS: string[] = [
          CHECK (status IN ('Open', 'Booked', 'Blocked')) NOT VALID;
      END IF;
    END $$`,
+  // 15-minute grid: grid slots overlapping a legacy (30-minute) booking are
+  // kept as Blocked rows that point at the booking they are covered by.
+  `ALTER TABLE slots ADD COLUMN IF NOT EXISTS covered_by TEXT`,
+  `CREATE INDEX IF NOT EXISTS slots_covered_by_idx ON slots (covered_by) WHERE covered_by IS NOT NULL`,
+  // Hard guarantee: two Booked rows for one host can never overlap in time.
+  `CREATE EXTENSION IF NOT EXISTS btree_gist`,
+  `DO $$ BEGIN
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'slots_booked_no_overlap') THEN
+       ALTER TABLE slots ADD CONSTRAINT slots_booked_no_overlap
+         EXCLUDE USING gist (agency_id WITH =, tstzrange(start_at, end_at) WITH &&)
+         WHERE (status = 'Booked');
+     END IF;
+   END $$`,
   // Delivery log so failures are visible in /admin, not only in Vercel logs.
   `CREATE TABLE IF NOT EXISTS mail_log (
      id BIGSERIAL PRIMARY KEY,

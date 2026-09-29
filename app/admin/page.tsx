@@ -229,7 +229,7 @@ export default async function AdminPage({
       <h2 id="add" className="mb-3 mt-8 text-xl font-bold">Add agency</h2>
       <form action={createAgencyAction} className={`${card} grid gap-3`}>
         <AgencyFields />
-        <p className="text-xs text-slate-500">A full 30-minute grid (Oct 13–14, 8:00 AM–4:00 PM CT) is created automatically.</p>
+        <p className="text-xs text-slate-500">A full 15-minute grid (Oct 13–14, 8:00 AM–4:00 PM CT) is created automatically.</p>
         <button className={btnPrimary} type="submit">Add agency</button>
       </form>
 

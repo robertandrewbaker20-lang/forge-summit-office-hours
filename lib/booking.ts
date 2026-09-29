@@ -3,6 +3,7 @@ import { getPool, getSql } from "./db";
 import type { Pool } from "@neondatabase/serverless";
 import { logoFor } from "./logos";
 import { isValidEmail } from "./emails";
+import { coverOverlaps, releaseCovered, type Queryable } from "./regrid";
 import type {
   Agency,
   Availability,
@@ -150,15 +151,17 @@ export async function listAgencies(opts?: {
   return rows.map(mapAgency);
 }
 
-export async function getAvailability(): Promise<Availability> {
+export async function getAvailability(now = new Date()): Promise<Availability> {
   const sql = getSql();
   const cfg = await getSettingsMap();
   const agencies = await listAgencies({ activeOnly: true });
   const activeIds = new Set(agencies.map((ag) => ag.id));
+  // Covered rows (the second half of a legacy 30-minute booking) show as taken;
+  // admin-blocked rows stay hidden.
   const slotRows = (await sql`
-    SELECT id, agency_id, time_label, day_label, status
+    SELECT id, agency_id, time_label, day_label, status, start_at
     FROM slots
-    WHERE status <> 'Blocked'
+    WHERE status <> 'Blocked' OR covered_by IS NOT NULL
     ORDER BY start_at, agency_name
   `) as {
     id: string;
@@ -166,7 +169,9 @@ export async function getAvailability(): Promise<Availability> {
     time_label: string;
     day_label: string;
     status: string;
+    start_at: string | Date;
   }[];
+  const nowMs = now.getTime();
 
   const byAgency: Record<
     number,
@@ -182,7 +187,8 @@ export async function getAvailability(): Promise<Availability> {
     if (!byAgency[agencyId]) {
       byAgency[agencyId] = { open: 0, slots: [] };
     }
-    const isOpen = row.status === "Open";
+    // Bookable = active host (filtered above), Open, and not already started.
+    const isOpen = row.status === "Open" && new Date(row.start_at).getTime() > nowMs;
     if (isOpen) {
       byAgency[agencyId].open += 1;
       openTotal += 1;
@@ -298,6 +304,20 @@ export async function bookSlot(
       return { ok: false, code: "TAKEN" };
     }
 
+    // Belt and braces next to the DB exclusion constraint: never book a time
+    // that overlaps another booking for the same host.
+    const overlapRes = await client.query<{ id: string }>(
+      `SELECT b.id FROM slots b JOIN slots t ON t.id = $1
+       WHERE b.agency_id = t.agency_id AND b.id <> t.id AND b.status = 'Booked'
+         AND b.start_at < t.end_at AND b.end_at > t.start_at
+       LIMIT 1`,
+      [slotId],
+    );
+    if (overlapRes.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return { ok: false, code: "TAKEN" };
+    }
+
     const cap = Number(cfg["Max Bookings Per Email"] || 2);
     const mineRes = await client.query<{ n: string }>(
       `SELECT count(*)::text AS n FROM slots
@@ -383,7 +403,9 @@ export async function getBoard(now = new Date()): Promise<Board> {
   const today = chicagoDate(now);
 
   const rows = (await sql`
-    SELECT agency_id, time_label, status, start_at
+    SELECT agency_id, time_label,
+           CASE WHEN covered_by IS NOT NULL THEN 'Booked' ELSE status END AS status,
+           start_at
     FROM slots
     ORDER BY start_at, agency_name
   `) as {
@@ -575,7 +597,7 @@ export async function updateSlotStatus(input: {
         topic = ${topic},
         confirmation = ${confirmation},
         booked_at = ${bookedAt}
-    WHERE id = ${input.id} AND status = ${expected}
+    WHERE id = ${input.id} AND status = ${expected} AND covered_by IS NULL
     RETURNING *
   `) as SlotRow[];
 
@@ -583,6 +605,25 @@ export async function updateSlotStatus(input: {
     const again = await getSlot(input.id);
     if (again) return { conflict: true, slot: again };
     return null;
+  }
+
+  if (input.status === "Open" && existing.status !== "Open") {
+    const client = await getPool().connect();
+    try {
+      await releaseCovered(client as unknown as Queryable, input.id);
+    } finally {
+      client.release();
+    }
+    return (await getSlot(input.id)) || mapSlot(rows[0]);
+  }
+  if (input.status !== "Open" && existing.status === "Open") {
+    const client = await getPool().connect();
+    try {
+      // An admin block/booking over a longer row keeps neighbours out too.
+      await coverOverlaps(client as unknown as Queryable, rows[0].agency_id);
+    } finally {
+      client.release();
+    }
   }
 
   return mapSlot(rows[0]);

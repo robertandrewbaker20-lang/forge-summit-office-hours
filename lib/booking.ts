@@ -145,8 +145,8 @@ export async function listAgencies(opts?: {
 }): Promise<Agency[]> {
   const sql = getSql();
   const rows = opts?.activeOnly
-    ? ((await sql`SELECT * FROM agencies WHERE active = true ORDER BY id`) as AgencyRow[])
-    : ((await sql`SELECT * FROM agencies ORDER BY id`) as AgencyRow[]);
+    ? ((await sql`SELECT * FROM agencies WHERE active = true ORDER BY COALESCE(sort_order, id), id`) as AgencyRow[])
+    : ((await sql`SELECT * FROM agencies ORDER BY COALESCE(sort_order, id), id`) as AgencyRow[]);
   return rows.map(mapAgency);
 }
 

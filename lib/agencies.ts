@@ -14,6 +14,7 @@ export type AdminAgency = {
   repName: string;
   notifyEmails: string[];
   logoUrl: string;
+  sortOrder: number | null;
   active: boolean;
   booked: number;
   open: number;
@@ -55,6 +56,7 @@ export type AgencyInput = {
   location: string;
   website: string;
   logoUrl: string;
+  sortOrder: number | null;
   active: boolean;
 };
 
@@ -93,6 +95,14 @@ export function normalizeAgencyInput(raw: Partial<Record<keyof AgencyInput, unkn
     throw new ValidationError("Logo must be a /path under public or an https:// URL.");
   }
   if (logoUrl.length > LIMITS.logoUrl) throw new ValidationError("Logo URL is too long.");
+  const sortRaw = text(raw.sortOrder);
+  let sortOrder: number | null = null;
+  if (sortRaw) {
+    sortOrder = Number(sortRaw);
+    if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 100000) {
+      throw new ValidationError("Display order must be a whole number (0–100000).");
+    }
+  }
   const activeRaw = raw.active;
   const active = activeRaw === true || activeRaw === "on" || activeRaw === "true";
   return {
@@ -104,6 +114,7 @@ export function normalizeAgencyInput(raw: Partial<Record<keyof AgencyInput, unkn
     location,
     website,
     logoUrl,
+    sortOrder,
     active,
   };
 }
@@ -141,7 +152,7 @@ export async function listAdminAgencies(): Promise<AdminAgency[]> {
     FROM agencies a
     LEFT JOIN slots s ON s.agency_id = a.id
     GROUP BY a.id
-    ORDER BY a.active DESC, a.type DESC, a.id
+    ORDER BY a.active DESC, a.type DESC, COALESCE(a.sort_order, a.id), a.id
   `) as Record<string, unknown>[];
   return rows.map((r) => ({
     id: Number(r.id),
@@ -153,6 +164,7 @@ export async function listAdminAgencies(): Promise<AdminAgency[]> {
     repName: String(r.rep_name || ""),
     notifyEmails: parseEmailList(String(r.rep_emails || "")).emails,
     logoUrl: String(r.logo_url || ""),
+    sortOrder: r.sort_order == null ? null : Number(r.sort_order),
     active: Boolean(r.active),
     booked: Number(r.booked),
     open: Number(r.open),
@@ -207,10 +219,10 @@ export async function createAgency(input: AgencyInput): Promise<{ id: number; sl
   try {
     return await tx(async (client) => {
       const res = await client.query<{ id: number }>(
-        `INSERT INTO agencies (name, type, blurb, location, website, rep_name, rep_emails, calendar_id, active, logo_url)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, '', $8, $9)
+        `INSERT INTO agencies (name, type, blurb, location, website, rep_name, rep_emails, calendar_id, active, logo_url, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, '', $8, $9, $10)
          RETURNING id`,
-        [input.name, input.type, input.blurb, input.location, input.website, input.repName, input.notifyEmails, input.active, input.logoUrl],
+        [input.name, input.type, input.blurb, input.location, input.website, input.repName, input.notifyEmails, input.active, input.logoUrl, input.sortOrder],
       );
       const id = Number(res.rows[0].id);
       const slots = await generateSlotsForAgency(client, id, input.name);
@@ -228,9 +240,9 @@ export async function updateAgencyAdmin(id: number, input: AgencyInput): Promise
       const res = await client.query(
         `UPDATE agencies
          SET name = $2, type = $3, blurb = $4, location = $5, website = $6,
-             rep_name = $7, rep_emails = $8, active = $9, logo_url = $10, updated_at = now()
+             rep_name = $7, rep_emails = $8, active = $9, logo_url = $10, sort_order = $11, updated_at = now()
          WHERE id = $1`,
-        [id, input.name, input.type, input.blurb, input.location, input.website, input.repName, input.notifyEmails, input.active, input.logoUrl],
+        [id, input.name, input.type, input.blurb, input.location, input.website, input.repName, input.notifyEmails, input.active, input.logoUrl, input.sortOrder],
       );
       if (res.rowCount !== 1) throw new ValidationError("Agency not found.");
       // Keep the denormalized name on slots in sync (bookings stay attached by id).

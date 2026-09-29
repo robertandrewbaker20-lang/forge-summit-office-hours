@@ -47,6 +47,7 @@ function agencyFields(form: FormData) {
     location: form.get("location"),
     website: form.get("website"),
     logoUrl: form.get("logoUrl"),
+    sortOrder: form.get("sortOrder"),
     active: form.get("active"),
   };
 }

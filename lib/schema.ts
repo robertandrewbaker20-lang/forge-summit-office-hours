@@ -8,6 +8,7 @@ import { HOST_LOGO_PATHS } from "./logos";
 const STATEMENTS: string[] = [
   // Per-agency logo so renames keep their mark and new agencies can have one.
   `ALTER TABLE agencies ADD COLUMN IF NOT EXISTS logo_url TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE agencies ADD COLUMN IF NOT EXISTS sort_order INTEGER`,
   `ALTER TABLE agencies ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now()`,
   `ALTER TABLE agencies ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`,
   // Double-booking guard at the DB level: one slot per host per start time.

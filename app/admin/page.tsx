@@ -97,6 +97,10 @@ function AgencyFields({ ag }: { ag?: AdminAgency }) {
         <label className={label}>Logo (optional: /logos/file.png or https:// URL)</label>
         <input className={input} name="logoUrl" maxLength={500} defaultValue={ag?.logoUrl} autoCapitalize="none" />
       </div>
+      <div>
+        <label className={label}>Display order (optional, lower shows first)</label>
+        <input className={input} name="sortOrder" inputMode="numeric" pattern="[0-9]*" defaultValue={ag?.sortOrder ?? ""} placeholder={ag ? String(ag.id) : "auto"} />
+      </div>
       <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 sm:col-span-2">
         <input type="checkbox" name="active" defaultChecked={ag ? ag.active : true} className="h-5 w-5" />
         Active (attendees can book)

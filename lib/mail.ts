@@ -67,15 +67,15 @@ function bookingHtml(booking: BookingMailPayload, intro: string): string {
   const rows = bookingLines(booking)
     .map((line) => {
       const [label, ...rest] = line.split(": ");
-      return `<tr><td style="padding:6px 16px 6px 0;color:#64748b;vertical-align:top;">${label}</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(rest.join(": "))}</td></tr>`;
+      return `<tr><td style="padding:6px 16px 6px 0;color:#5A6B78;vertical-align:top;">${label}</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(rest.join(": "))}</td></tr>`;
     })
     .join("");
   return `<!doctype html>
-<html><body style="margin:0;background:#f3f5f8;color:#0a1220;font-family:Helvetica,Arial,sans-serif;">
+<html><body style="margin:0;background:#F5F8FA;color:#041C2C;font-family:Helvetica,Arial,sans-serif;">
   <div style="max-width:560px;margin:24px auto;padding:0 16px;">
     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
-    <table style="width:100%;border-collapse:collapse;background:#fff;padding:16px;border:1px solid #dce2e9;">${rows}</table>
-    <p style="margin:16px 0 0;color:#64748b;font-size:13px;">Meetings are in ${escapeHtml(field(booking.room, VENUE_ROOM))}. Each group has a table sign.</p>
+    <table style="width:100%;border-collapse:collapse;background:#fff;padding:16px;border:1px solid #DFE5EA;">${rows}</table>
+    <p style="margin:16px 0 0;color:#5A6B78;font-size:13px;">Meetings are in ${escapeHtml(field(booking.room, VENUE_ROOM))}. Each group has a table sign.</p>
   </div>
 </body></html>`;
 }
@@ -183,16 +183,23 @@ export function adminCopyEmail(): string {
  */
 export async function sendBookingEmails(
   booking: BookingMailPayload,
-  opts: { slotId?: string; hostEmails?: string[]; deps?: MailDeps } = {},
+  opts: {
+    slotId?: string;
+    hostEmails?: string[];
+    deps?: MailDeps;
+    /** Which messages to send (default: all). Lets the route confirm the attendee mail synchronously. */
+    parts?: MailKind[];
+  } = {},
 ): Promise<MailResult[]> {
   const results: MailResult[] = [];
+  const want = (k: MailKind) => !opts.parts || opts.parts.includes(k);
   try {
     const send = opts.deps?.send ?? gmailSender();
     const lines = bookingLines(booking).join("\n");
     const room = field(booking.room, VENUE_ROOM);
     const hostEmails = opts.hostEmails ?? [];
 
-    results.push(
+    if (want("attendee")) results.push(
       await deliver(send, "attendee", [booking.email], {
         subject: `Office hours confirmed — ${field(booking.agency)}, ${field(booking.day)} ${field(booking.time)}`,
         text: `You are booked.\n\n${lines}\n\nMeetings are in ${room}. Each group has a table sign.`,
@@ -201,7 +208,7 @@ export async function sendBookingEmails(
     );
 
     const attendeeReplyTo = isValidEmail(booking.email) ? booking.email.trim() : undefined;
-    results.push(
+    if (want("host")) results.push(
       await deliver(send, "host", hostEmails, {
         subject: `New office hours booking with ${field(booking.agency)} — ${field(booking.day)} ${field(booking.time)}`,
         text: `Someone booked time with ${field(booking.agency)} at Forge Summit office hours. Reply to this email to reach them.\n\n${lines}`,
@@ -215,7 +222,7 @@ export async function sendBookingEmails(
 
     const admin = notifyEmail();
     const adminTo = admin && !hostEmails.includes(admin.toLowerCase()) ? [admin] : [];
-    if (adminTo.length) {
+    if (adminTo.length && want("admin")) {
       results.push(
         await deliver(send, "admin", adminTo, {
           subject: `New office hours booking — ${field(booking.name)} / ${field(booking.agency)}`,

@@ -1,17 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --navy: #0a1220;
-  --ink: #060b14;
-  --deep: #16233a;
+  /* Forge brand tokens */
+  --navy: #041c2c;
+  --ink: #041c2c;
+  --deep: #16354a;
   --signal: #23b5e8;
-  --azure: #1878c8;
-  --phoenix: #e8871e;
-  --paper: #f3f5f8;
+  --azure: #0072ce; /* Forge blue */
+  --azure-dark: #005ba5;
+  --phoenix: #e57200; /* Forge orange */
+  --purple: #7474c1; /* Forge purple */
+  --paper: #f5f8fa; /* tint */
   --sheet: #ffffff;
-  --ash: #64748b;
-  --line: #dce2e9;
-  --taken: #a3aebb;
+  --ash: #5a6b78; /* muted */
+  --line: #dfe5ea;
+  --taken: #5a6b78;
+  --radius: 10px;
   --gut: 18px;
   --background: var(--paper);
   --foreground: var(--navy);
@@ -20,12 +24,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-archivo);
+  --font-sans: var(--font-inter);
 }
 
 * {
   box-sizing: border-box;
-  -webkit-tap-highlight-color: rgba(35, 181, 232, 0.15);
+  -webkit-tap-highlight-color: rgba(0, 114, 206, 0.15);
 }
 
 html {
@@ -36,7 +40,7 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--navy);
-  font-family: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-inter), "Helvetica Neue", Arial, sans-serif;
   font-size: 16px;
   line-height: 1.5;
   overflow-x: hidden;
@@ -45,6 +49,29 @@ body {
 
 button {
   touch-action: manipulation;
+}
+
+/* Archivo for headings and display numbers; Inter for body and forms. */
+h1,
+h2,
+h3,
+.group-name,
+.group-n,
+.row-n,
+.code {
+  font-family: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .wrap {
@@ -60,6 +87,8 @@ button {
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center right;
+  /* Recolor the curtain photo into Forge navy (removes off-brand purple). */
+  background-blend-mode: luminosity;
   overflow: hidden;
 }
 
@@ -70,9 +99,9 @@ button {
   background: linear-gradient(
     100deg,
     var(--ink) 4%,
-    rgba(6, 11, 20, 0.88) 34%,
-    rgba(6, 11, 20, 0.45) 66%,
-    rgba(6, 11, 20, 0.15) 100%
+    rgba(4, 28, 44, 0.88) 34%,
+    rgba(4, 28, 44, 0.45) 66%,
+    rgba(4, 28, 44, 0.15) 100%
   );
 }
 
@@ -123,17 +152,17 @@ h1 {
   background:
     linear-gradient(
       180deg,
-      rgba(6, 11, 20, 0) 0%,
-      rgba(6, 11, 20, 0) 34%,
-      rgba(6, 11, 20, 0.78) 58%,
-      rgba(6, 11, 20, 0.9) 100%
+      rgba(4, 28, 44, 0) 0%,
+      rgba(4, 28, 44, 0) 34%,
+      rgba(4, 28, 44, 0.78) 58%,
+      rgba(4, 28, 44, 0.9) 100%
     ),
     linear-gradient(
       100deg,
-      #060b14 0%,
-      rgba(6, 11, 20, 0.84) 30%,
-      rgba(6, 11, 20, 0.28) 64%,
-      rgba(6, 11, 20, 0.05) 100%
+      #041c2c 0%,
+      rgba(4, 28, 44, 0.84) 30%,
+      rgba(4, 28, 44, 0.28) 64%,
+      rgba(4, 28, 44, 0.05) 100%
     );
 }
 
@@ -173,8 +202,8 @@ h1 {
 .venue {
   margin: 0 0 20px;
   padding: 12px 14px;
-  background: #e8eef5;
-  border-left: 3px solid var(--signal);
+  background: #eaf1f8;
+  border-left: 3px solid var(--azure);
   font-size: 14.5px;
   color: var(--navy);
 }
@@ -193,7 +222,7 @@ h1 {
   cursor: pointer;
   border: 1px solid var(--line);
   border-left: 4px solid var(--azure);
-  border-radius: 2px;
+  border-radius: var(--radius);
   padding: 19px 18px;
   margin-bottom: 10px;
 }
@@ -260,7 +289,7 @@ h1 {
   border: 1px solid var(--line);
 }
 
-/* Back navigation: clear filled button in Forge azure (white on #1878c8 ≈ 4.6:1, AA). */
+/* Back navigation: filled Forge blue button (white on #0072ce = 4.89:1, AA). */
 .back {
   display: inline-flex;
   align-items: center;
@@ -275,8 +304,8 @@ h1 {
   color: #fff;
   background: var(--azure);
   border: 2px solid var(--azure);
-  border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(6, 11, 20, 0.18);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 2px rgba(4, 28, 44, 0.18);
   cursor: pointer;
   text-align: left;
   max-width: 100%;
@@ -289,8 +318,8 @@ h1 {
 }
 
 .back:hover {
-  background: #1366ad;
-  border-color: #1366ad;
+  background: var(--azure-dark);
+  border-color: var(--azure-dark);
 }
 
 .back:active {
@@ -298,9 +327,8 @@ h1 {
 }
 
 .back:focus-visible {
-  outline: 3px solid var(--navy);
+  outline: 2px solid var(--navy);
   outline-offset: 2px;
-  box-shadow: 0 0 0 2px #fff;
 }
 
 h2 {
@@ -326,7 +354,7 @@ h2 {
   cursor: pointer;
   border: 1px solid var(--line);
   border-left: 3px solid var(--azure);
-  border-radius: 2px;
+  border-radius: var(--radius);
   padding: 12px 16px 12px 13px;
   margin-bottom: 7px;
   gap: 13px;
@@ -389,7 +417,7 @@ h2 {
   background: var(--sheet);
   border: 1px solid var(--line);
   border-top: 4px solid var(--azure);
-  border-radius: 2px;
+  border-radius: var(--radius);
   padding: 20px 18px;
   margin-bottom: 22px;
 }
@@ -457,8 +485,8 @@ h2 {
   word-break: break-word;
 }
 
-.detail.cohort .meta a {
-  color: var(--phoenix);
+.meta a:hover {
+  text-decoration: underline;
 }
 
 h3 {
@@ -482,7 +510,7 @@ h3 {
   font-size: 14px;
   font-weight: 500;
   padding: 11px 15px;
-  border-radius: 2px;
+  border-radius: var(--radius);
   cursor: pointer;
   min-height: 44px;
   flex: 1 1 auto;
@@ -510,17 +538,29 @@ h3 {
   border: 1px solid var(--deep);
   background: var(--sheet);
   color: var(--navy);
-  border-radius: 2px;
+  border-radius: var(--radius);
   cursor: pointer;
   white-space: nowrap;
 }
 
 .slot[disabled] {
   border-color: var(--line);
-  color: var(--taken);
+  background: var(--paper);
+  color: var(--taken); /* #5a6b78 on #f5f8fa = 5.17:1 */
   text-decoration: line-through;
   cursor: default;
   font-weight: 400;
+}
+
+.tz-note {
+  margin: -6px 0 12px;
+  color: var(--ash);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.site-footer a {
+  color: var(--azure);
 }
 
 .slot[aria-pressed="true"] {
@@ -538,7 +578,7 @@ h3 {
 .form {
   background: var(--sheet);
   border: 1px solid var(--line);
-  border-radius: 2px;
+  border-radius: var(--radius);
   padding: 2px 18px 20px;
   margin-top: 18px;
 }
@@ -570,9 +610,15 @@ textarea {
 
 input:focus,
 textarea:focus,
-button:focus-visible {
-  outline: 2px solid var(--signal);
-  outline-offset: 1px;
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
+}
+
+.done button:focus-visible,
+.mast a:focus-visible {
+  outline-color: #fff;
 }
 
 .optional {
@@ -589,14 +635,24 @@ button:focus-visible {
   padding: 16px;
   min-height: 54px;
   border: 0;
-  border-radius: 2px;
+  border-radius: var(--radius);
   background: var(--azure);
   color: #fff;
   cursor: pointer;
 }
 
+.book:hover {
+  background: var(--azure-dark);
+}
+
+/* Navy on Forge orange = 5.58:1 (white would fail). */
 .book.cohort {
   background: var(--phoenix);
+  color: var(--navy);
+}
+
+.book.cohort:hover {
+  background: #cc6600;
 }
 
 .book:active {
@@ -605,14 +661,17 @@ button:focus-visible {
 
 .book[disabled] {
   background: var(--taken);
+  color: #fff;
   cursor: default;
 }
 
 .err {
   margin-top: 14px;
   padding: 12px 14px;
-  background: #fdf0e3;
+  background: #fdf1e6;
   border-left: 3px solid var(--phoenix);
+  border-radius: 6px;
+  color: var(--navy);
   font-size: 14px;
 }
 
@@ -637,7 +696,7 @@ button:focus-visible {
 }
 
 .done dt {
-  color: #8fa2b8;
+  color: #9fb3c4;
   font-size: 14px;
 }
 
@@ -655,14 +714,14 @@ button:focus-visible {
 }
 
 .done p {
-  color: #8fa2b8;
+  color: #c3d1dc;
   font-size: 14px;
   margin: 22px 0 0;
   line-height: 1.55;
 }
 
 .done .venue {
-  background: #132033;
+  background: #0d2c42;
   border-left-color: var(--signal);
   color: #d6e2f0;
   margin: 18px 0 0;
@@ -676,20 +735,20 @@ button:focus-visible {
   display: block;
   font-weight: 400;
   font-size: 13px;
-  color: #8fa2b8;
+  color: #9fb3c4;
   margin-top: 4px;
 }
 
 .again {
   margin-top: 20px;
   background: none;
-  border: 1px solid #3a4a60;
+  border: 1px solid #6f8699;
   color: #fff;
   font: inherit;
   font-size: 15px;
   padding: 13px 18px;
   min-height: 46px;
-  border-radius: 2px;
+  border-radius: var(--radius);
   cursor: pointer;
 }
 
@@ -854,20 +913,20 @@ button:focus-visible {
 }
 
 .board-page .sub {
-  color: #7d8ea3;
+  color: #8fa3b5;
   font-size: 1.3vw;
 }
 
 .board-page .stamp {
   margin-left: auto;
-  color: #7d8ea3;
+  color: #8fa3b5;
   font-size: 1.1vw;
 }
 
 .board-page .band {
   height: 4px;
   margin-bottom: 2vw;
-  background: linear-gradient(90deg, var(--azure), var(--signal) 30%, #8b2fc9 70%, #c724b1);
+  background: linear-gradient(90deg, var(--azure), var(--signal) 35%, var(--purple) 75%, var(--phoenix));
 }
 
 .board-page table {
@@ -882,7 +941,7 @@ button:focus-visible {
 }
 
 .board-page thead th {
-  color: #7d8ea3;
+  color: #8fa3b5;
   font-size: 1.2vw;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -904,7 +963,7 @@ button:focus-visible {
 }
 
 .board-page tbody tr {
-  border-bottom: 1px solid #1b2738;
+  border-bottom: 1px solid #123247;
 }
 
 .board-page .cell {
@@ -922,18 +981,18 @@ button:focus-visible {
 }
 
 .board-page .booked {
-  color: #3e4b5e;
+  color: #7d93a6;
   text-decoration: line-through;
   font-weight: 400;
 }
 
 .board-page .none {
-  color: #3e4b5e;
+  color: #7d93a6;
 }
 
 .board-page footer {
   margin-top: 2.2vw;
-  color: #7d8ea3;
+  color: #8fa3b5;
   font-size: 1.2vw;
   display: flex;
   gap: 2.4vw;
@@ -951,7 +1010,7 @@ button:focus-visible {
 }
 
 .board-page .key.off {
-  background: #3e4b5e;
+  background: #7d93a6;
 }
 
 .board-page .key.part {
@@ -965,7 +1024,7 @@ button:focus-visible {
 .board-page .empty {
   padding: 6vw 0;
   text-align: center;
-  color: #7d8ea3;
+  color: #8fa3b5;
   font-size: 1.8vw;
 }
 
@@ -999,5 +1058,95 @@ button:focus-visible {
   * {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+.site-footer {
+  padding: 28px var(--gut) 0;
+  color: var(--ash); /* #5a6b78 on #f5f8fa = 5.17:1 */
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+.privacy-page p {
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0 0 14px;
+}
+
+.privacy-page .privacy-title {
+  color: var(--navy);
+  margin: 4px 0 14px;
+}
+
+.more {
+  display: none;
+  background: none;
+  border: 0;
+  padding: 8px 0;
+  min-height: 44px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--azure);
+  cursor: pointer;
+}
+
+/* Phones: after step 1, collapse the landing header to a slim bar so slots
+   are visible without scrolling. */
+@media (max-width: 640px) {
+  html[data-step="list"] .mast.ssr-landing,
+  html[data-step="host"] .mast.ssr-landing,
+  html[data-step="done"] .mast.ssr-landing {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: calc(10px + env(safe-area-inset-top)) var(--gut) 10px;
+  }
+  html[data-step="list"] .mast.ssr-landing .lockup,
+  html[data-step="host"] .mast.ssr-landing .lockup,
+  html[data-step="done"] .mast.ssr-landing .lockup {
+    width: 76px;
+    margin: 0;
+  }
+  html[data-step="list"] .mast.ssr-landing h1,
+  html[data-step="host"] .mast.ssr-landing h1,
+  html[data-step="done"] .mast.ssr-landing h1 {
+    font-size: 18px;
+    margin: 0;
+  }
+  html[data-step="list"] .mast.ssr-landing p,
+  html[data-step="host"] .mast.ssr-landing p,
+  html[data-step="done"] .mast.ssr-landing p {
+    display: none;
+  }
+  html[data-step="host"] .body {
+    padding-top: 14px;
+  }
+  html[data-step="host"] .back {
+    margin-bottom: 12px;
+  }
+  html[data-step="host"] .detail {
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  html[data-step="host"] .summary:not(.expanded) {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-top: 12px;
+    font-size: 14.5px;
+    line-height: 1.5;
+  }
+  html[data-step="host"] .more {
+    display: inline-block;
+  }
+  html[data-step="host"] .venue {
+    margin-bottom: 14px;
   }
 }

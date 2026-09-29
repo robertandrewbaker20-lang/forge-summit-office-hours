@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo } from "next/font/google";
+import { Archivo, Inter } from "next/font/google";
 import "./globals.css";
+import { SITE_URL as SITE } from "@/lib/site";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -9,9 +10,13 @@ const archivo = Archivo({
   display: "swap",
 });
 
-const SITE =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  "https://forge-summit-oh-robert-baker-s-projects.vercel.app";
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
 
 const TITLE = "Office Hours — Forge Summit 2026";
 const DESCRIPTION =
@@ -29,18 +34,16 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     siteName: "Forge Summit",
     locale: "en_US",
-    images: [{ url: "/brand/summit-lockup.png", alt: "Forge Summit 2026" }],
   },
   twitter: {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/brand/summit-lockup.png"],
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#060B14",
+  themeColor: "#041C2C",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -76,14 +79,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${archivo.variable} h-full antialiased`}>
+    <html lang="en-US" className={`${archivo.variable} ${inter.variable} h-full antialiased`}>
       <head>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd) }}
         />
       </head>
-      <body className={`${archivo.className} min-h-full`}>{children}</body>
+      <body className={`${inter.className} min-h-full`}>{children}</body>
     </html>
   );
 }

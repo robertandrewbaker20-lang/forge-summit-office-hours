@@ -1,5 +1,6 @@
 import { BookingApp } from "./components/BookingApp";
 import { CURTAIN, SUMMIT_LOCKUP } from "@/lib/logos";
+import { SiteFooter } from "./components/SiteFooter";
 
 export default function HomePage() {
   return (
@@ -26,6 +27,7 @@ export default function HomePage() {
         </p>
       </header>
       <BookingApp embed />
+      <SiteFooter />
     </div>
   );
 }

@@ -39,6 +39,7 @@ export function BookingApp({ embed = false }: { embed?: boolean } = { embed: fal
   );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [announce, setAnnounce] = useState("");
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -90,6 +91,14 @@ export function BookingApp({ embed = false }: { embed?: boolean } = { embed: fal
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [load, slotId, view]);
+
+  useEffect(() => {
+    // Lets CSS compact the landing header on phones after step 1.
+    document.documentElement.dataset.step = view;
+    return () => {
+      delete document.documentElement.dataset.step;
+    };
+  }, [view]);
 
   const hostsIn = useCallback(
     (type: HostType) => (data?.agencies || []).filter((a) => a.type === type),
@@ -163,6 +172,7 @@ export function BookingApp({ embed = false }: { embed?: boolean } = { embed: fal
       });
       const payload = (await res.json()) as BookSlotResult;
       if (payload.ok) {
+        setAnnounce(`Booked: ${payload.agency}, ${payload.day} at ${payload.time}. Confirmation code ${payload.confirmation}.`);
         setResult(payload);
         setView("done");
         try {
@@ -210,6 +220,9 @@ export function BookingApp({ embed = false }: { embed?: boolean } = { embed: fal
 
   const body = (
       <div className="body">
+        <p className="sr-only" role="status" aria-live="polite">
+          {announce}
+        </p>
         {!data.open && view !== "done" ? (
           <div className="msg" style={{ padding: 0 }}>
             Booking is closed. Open times are still available as walk-ups at each
@@ -475,7 +488,7 @@ function HostScreen({
             {agency.location ? <span className="where">{agency.location}</span> : null}
           </div>
         </div>
-        {agency.blurb ? <p className="summary">{agency.blurb}</p> : null}
+        {agency.blurb ? <Summary text={agency.blurb} /> : null}
         {((agency.website && agency.website.trim()) || (agency.rep && agency.rep.trim() && agency.rep.trim().toUpperCase() !== "TBC")) && (
           <dl className="meta">
             {agency.website && agency.website.trim() ? (
@@ -504,6 +517,7 @@ function HostScreen({
 
       <VenueNote />
       <h3>Available times</h3>
+      <p className="tz-note">All times Central (CT)</p>
       {days.length > 1 && (
         <div className="days">
           {days.map((d) => (
@@ -533,6 +547,7 @@ function HostScreen({
                 className="slot"
                 disabled={!s.open}
                 aria-pressed={slotId === s.id}
+                aria-label={s.open ? `${s.time} CT` : `${s.time}, taken`}
                 onClick={() => onSlot(s)}
               >
                 {s.time}
@@ -544,6 +559,8 @@ function HostScreen({
               <label htmlFor="f-name">Your name</label>
               <input
                 id="f-name"
+                required
+                aria-required="true"
                 autoComplete="name"
                 maxLength={80}
                 value={form.name}
@@ -553,6 +570,8 @@ function HostScreen({
               <input
                 id="f-email"
                 type="email"
+                required
+                aria-required="true"
                 inputMode="email"
                 autoComplete="email"
                 autoCapitalize="off"
@@ -560,7 +579,9 @@ function HostScreen({
                 value={form.email}
                 onChange={(e) => onForm({ ...form, email: e.target.value })}
               />
-              <label htmlFor="f-org">Organization</label>
+              <label htmlFor="f-org">
+                Organization <span className="optional">Optional</span>
+              </label>
               <input
                 id="f-org"
                 autoComplete="organization"
@@ -586,13 +607,34 @@ function HostScreen({
               >
                 {busy ? "Booking…" : `Book ${slotTime}`}
               </button>
-              {error ? <div className="err">{error}</div> : null}
             </form>
           ) : (
             <p className="note">Struck-through times are already taken.</p>
           )}
         </>
       )}
+      <div role="status" aria-live="polite" aria-atomic="true">
+        {error ? <div className="err">{error}</div> : null}
+      </div>
+    </>
+  );
+}
+
+function Summary({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <p className={`summary${open ? " expanded" : ""}`}>{text}</p>
+      {text.length > 140 ? (
+        <button
+          type="button"
+          className="more"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? "Show less" : "Read more"}
+        </button>
+      ) : null}
     </>
   );
 }
@@ -605,7 +647,7 @@ function Done({
   onAgain: () => void;
 }) {
   return (
-    <div className="done">
+    <div className="done" role="status">
       <h2>You are booked.</h2>
       <dl>
         <dt>Who</dt>
@@ -631,8 +673,13 @@ function Done({
         can no longer make it, tell the host so the slot can go to someone else.
       </p>
       <p className="mail-note">
-        If email is configured for this event, a confirmation will also be sent
-        to the address you provided. Keep your code above either way.
+        {result.emailSent && result.email ? (
+          <>
+            A confirmation has been sent to <strong>{result.email}</strong>. Keep your code.
+          </>
+        ) : (
+          <>Keep your code. Show it at the table.</>
+        )}
       </p>
       <button className="again" onClick={onAgain}>
         Book another meeting

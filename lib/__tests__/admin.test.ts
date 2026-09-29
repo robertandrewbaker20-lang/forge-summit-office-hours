@@ -111,6 +111,16 @@ describe("booking mail", () => {
     assert.ok(results.length >= 2 && results.every((r) => r.status === "skipped"));
   });
 
+  it("sends only the requested parts (attendee first, host+admin later)", async () => {
+    const kinds: string[] = [];
+    const send: SendFn = async (m) => (kinds.push(m.subject.split(" ")[0]), { id: "x" });
+    process.env.NOTIFY_EMAIL = "admin@example.com";
+    const a = await sendBookingEmails(booking, { hostEmails: ["h@agency.gov"], parts: ["attendee"], deps: { send } });
+    assert.deepEqual(a.map((r) => r.kind), ["attendee"]);
+    const b = await sendBookingEmails(booking, { hostEmails: ["h@agency.gov"], parts: ["host", "admin"], deps: { send } });
+    assert.deepEqual(b.map((r) => r.kind), ["host", "admin"]);
+  });
+
   it("skips host mail cleanly when the agency has no notification email", async () => {
     const results = await sendBookingEmails(booking, { hostEmails: [], deps: { send: async () => ({ id: "x" }) } });
     assert.equal(results.find((r) => r.kind === "host")?.status, "skipped");

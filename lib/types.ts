@@ -83,6 +83,9 @@ export type BookSlotSuccess = {
   day: string;
   time: string;
   room: string;
+  /** True only when the attendee confirmation was accepted by the mail server. */
+  emailSent?: boolean;
+  email?: string;
 };
 
 export type BookSlotFailure = {

@@ -6,7 +6,7 @@ import {
   type AdminAgency,
 } from "@/lib/agencies";
 import { bookingIsOpen, getSettingsMap } from "@/lib/booking";
-import { adminCopyEmail } from "@/lib/mail";
+import { adminCopyEmail, mailStatusLabel } from "@/lib/mail";
 import { ensureSchema } from "@/lib/schema";
 import { formatChicago } from "@/lib/time";
 import {
@@ -144,8 +144,6 @@ export default async function AdminPage({
     getSettingsMap(),
   ]);
   const open = bookingIsOpen(cfg);
-  const resendConfigured = Boolean((process.env.RESEND_API_KEY || "").trim());
-  const fromEmail = (process.env.FROM_EMAIL || "").trim() || "(default test sender)";
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-6 text-slate-900">
@@ -168,7 +166,7 @@ export default async function AdminPage({
         <div>
           <p className="font-semibold">Booking is {open ? "OPEN" : "CLOSED"}</p>
           <p className="text-sm text-slate-600">
-            Email: {resendConfigured ? "Resend configured" : "RESEND_API_KEY missing — no emails are sent"} · From {fromEmail} · Admin copy {adminCopyEmail() || "off"}
+            Email: {mailStatusLabel()} · Admin copy {adminCopyEmail() || "off"}
           </p>
         </div>
         <form action={setBookingOpenAction}>

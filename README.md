@@ -21,7 +21,7 @@ Public surfaces:
 | `/admin` | Password-protected admin (agencies, notification emails, bookings, email log) |
 | `/ops/<OPS_SECRET>` | Unlisted ops list of Booked slots |
 | `GET /api/getAvailability` | Open slots for active hosts |
-| `POST /api/bookSlot` | Race-safe Open → Booked; then confirmation + notify mail if Resend is configured |
+| `POST /api/bookSlot` | Race-safe Open → Booked; then confirmation + host + admin mail via Gmail SMTP |
 | `GET /api/getBoard` | Board grid |
 
 Partner agencies (SBA, AEDC, ASBTDC) and Phoenix cohort hosts are Active in seed. Max **2 bookings per email**.
@@ -41,9 +41,9 @@ DATABASE_URL=          # Neon pooled connection string
 ADMIN_PASSWORD=        # password for the /admin page (min 12 chars)
 ADMIN_API_KEY=         # long random secret for /api/admin/*
 OPS_SECRET=            # long random URL-safe secret for /ops
-RESEND_API_KEY=        # optional; booking still works if unset
+GMAIL_USER=            # Gmail account that sends mail (same as NOTIFY_EMAIL)
+GMAIL_APP_PASSWORD=    # Google app password (not the account password); booking still works if unset
 NOTIFY_EMAIL=          # robertandrewbaker20@gmail.com
-FROM_EMAIL=            # verified Resend sender, if not using the test domain
 ```
 
 Obtain `DATABASE_URL` from the Neon console (or the Vercel Neon integration) for project `flat-hat-60967335`, database `neondb`, pooled endpoint. Do not paste the full secret into tickets or chat.
@@ -183,19 +183,19 @@ If `OPS_SECRET` is not set on that deployment, `/ops` is 404 for every token.
 
 ## Booking email
 
-On a successful `POST /api/bookSlot` the app sends (via Resend, after the response):
+On a successful `POST /api/bookSlot` the app sends (via Gmail SMTP, smtp.gmail.com:465, after the response):
 
 1. **Confirmation** to the attendee.
 2. **Host notification** to the booked agency's notification emails (set in `/admin`), with Reply-To set to the attendee.
 3. **Admin copy** to `NOTIFY_EMAIL` (default `robertandrewbaker20@gmail.com`; skipped if it's already one of the host addresses).
 
-Every send is logged to the `mail_log` table (visible at `/admin#mail`) and to the function log. If `RESEND_API_KEY` is missing or Resend errors, **the booking still succeeds**.
+Every send is logged to the `mail_log` table (visible at `/admin#mail`) and to the function log. If `GMAIL_USER` / `GMAIL_APP_PASSWORD` are missing or Gmail errors, **the booking still succeeds**.
 
-`FROM_EMAIL` must be an address on a domain verified in Resend. Resend's shared test sender only delivers to the Resend account owner, so agencies will not receive mail until a domain is verified.
+Mail is sent as `"Forge Summit Office Hours" <GMAIL_USER>`. Create the app password at https://myaccount.google.com/apppasswords (2-Step Verification required). Gmail limits personal accounts to roughly 500 recipients/day, well above summit volume.
 
 ## Preview deploy
 
-This repository is the source of truth. Link it to the existing Vercel project `forge-summit-oh` and set **Preview** and **Production** env (Project → Settings → Environment Variables). `RESEND_API_KEY` is optional — booking works without mail:
+This repository is the source of truth. Link it to the existing Vercel project `forge-summit-oh` and set **Preview** and **Production** env (Project → Settings → Environment Variables). Mail vars are optional — booking works without mail:
 
 | Variable | Required for | Notes |
 | --- | --- | --- |
@@ -203,9 +203,9 @@ This repository is the source of truth. Link it to the existing Vercel project `
 | `ADMIN_PASSWORD` | `/admin` page | Min 12 chars. Set as a Sensitive env var |
 | `ADMIN_API_KEY` | `/api/admin/*` | Bearer secret |
 | `OPS_SECRET` | Unlisted `/ops` page | Long random, URL-safe. Bookmark `$HOST/ops/$OPS_SECRET` |
-| `RESEND_API_KEY` | Mail | If absent, book still succeeds; mail is skipped and logged |
+| `GMAIL_USER` | Mail | Sending Gmail address |
+| `GMAIL_APP_PASSWORD` | Mail | Sensitive. If absent, book still succeeds; mail is skipped and logged |
 | `NOTIFY_EMAIL` | Mail | `robertandrewbaker20@gmail.com` |
-| `FROM_EMAIL` | Mail | Verified sender, or Resend onboarding `beth.t@example.com` |
 
 After changing Preview env, redeploy the Preview (or push a commit) so the new values load.
 

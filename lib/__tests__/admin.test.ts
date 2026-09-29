@@ -73,9 +73,10 @@ const booking = {
 
 describe("booking mail", () => {
   it("emails attendee, all host notification emails, and admin copy", async () => {
-    const sent: { to: string[]; subject: string; replyTo?: string }[] = [];
+    const sent: { to: string[]; subject: string; replyTo?: string; from: string }[] = [];
+    process.env.GMAIL_USER = "sender@gmail.com";
     const send: SendFn = async (m) => {
-      sent.push({ to: m.to, subject: m.subject, replyTo: m.replyTo });
+      sent.push({ to: m.to, subject: m.subject, replyTo: m.replyTo, from: m.from });
       return { id: `id-${sent.length}` };
     };
     process.env.NOTIFY_EMAIL = "admin@example.com";
@@ -84,6 +85,7 @@ describe("booking mail", () => {
     assert.deepEqual(sent[1].to, ["h1@agency.gov", "h2@agency.gov"]);
     assert.equal(sent[1].replyTo, "attendee@example.com");
     assert.deepEqual(sent[2].to, ["admin@example.com"]);
+    assert.equal(sent[0].from, '"Forge Summit Office Hours" <sender@gmail.com>');
   });
 
   it("never throws when the provider fails, and keeps sending the rest", async () => {
@@ -101,6 +103,12 @@ describe("booking mail", () => {
     assert.equal(results[0].status, "failed");
     assert.equal(results[1].status, "sent");
     assert.deepEqual(recorded.slice(0, 2), ["attendee:failed", "host:sent"]);
+  });
+
+  it("skips all mail (no throw) when Gmail credentials are missing", async () => {
+    delete process.env.GMAIL_APP_PASSWORD;
+    const results = await sendBookingEmails(booking, { hostEmails: ["h@agency.gov"] });
+    assert.ok(results.length >= 2 && results.every((r) => r.status === "skipped"));
   });
 
   it("skips host mail cleanly when the agency has no notification email", async () => {

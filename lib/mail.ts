@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import { VENUE_ROOM } from "./venue";
 import { isValidEmail } from "./emails";
 
@@ -15,10 +15,25 @@ export type BookingMailPayload = {
 };
 
 const DEFAULT_NOTIFY = "robertandrewbaker20@gmail.com";
-const DEFAULT_FROM = "Forge Summit Office Hours <beth.t@example.com>";
+const FROM_NAME = "Forge Summit Office Hours";
 
-function resendApiKey(): string {
-  return (process.env.RESEND_API_KEY || "").trim();
+function gmailUser(): string {
+  return (process.env.GMAIL_USER || "").trim();
+}
+
+function gmailAppPassword(): string {
+  // Google shows app passwords in groups of 4 with spaces; SMTP wants none.
+  return (process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
+}
+
+export function mailConfigured(): boolean {
+  return Boolean(gmailUser() && gmailAppPassword());
+}
+
+export function mailStatusLabel(): string {
+  if (!gmailUser()) return "GMAIL_USER missing — no emails are sent";
+  if (!gmailAppPassword()) return "GMAIL_APP_PASSWORD missing — no emails are sent";
+  return `Gmail SMTP as ${gmailUser()}`;
 }
 
 function notifyEmail(): string {
@@ -26,7 +41,7 @@ function notifyEmail(): string {
 }
 
 function fromEmail(): string {
-  return (process.env.FROM_EMAIL || DEFAULT_FROM).trim();
+  return `"${FROM_NAME}" <${gmailUser()}>`;
 }
 
 function field(value: string, fallback = "—"): string {
@@ -97,10 +112,25 @@ export type MailDeps = {
   record?: (slotId: string | null, result: MailResult) => Promise<void>;
 };
 
-function resendSender(apiKey: string): SendFn {
-  const resend = new Resend(apiKey);
-  return async (input) => {
-    const { data, error } = await resend.emails.send({
+let cachedTransport: { key: string; send: SendFn } | null = null;
+
+function gmailSender(): SendFn | null {
+  const user = gmailUser();
+  const pass = gmailAppPassword();
+  if (!user || !pass) return null;
+  const key = `${user}:${pass.length}`;
+  if (cachedTransport?.key === key) return cachedTransport.send;
+  const transport = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: { user, pass },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  });
+  const send: SendFn = async (input) => {
+    const info = await transport.sendMail({
       from: input.from,
       to: input.to,
       replyTo: input.replyTo,
@@ -108,9 +138,13 @@ function resendSender(apiKey: string): SendFn {
       text: input.text,
       html: input.html,
     });
-    if (error) throw new Error(error.message || "Resend send failed");
-    return { id: data?.id };
+    if (info.rejected && info.rejected.length) {
+      throw new Error(`Rejected by Gmail: ${info.rejected.map(String).join(", ")}`);
+    }
+    return { id: info.messageId };
   };
+  cachedTransport = { key, send };
+  return send;
 }
 
 async function deliver(
@@ -124,7 +158,7 @@ async function deliver(
     return { kind, to: [], status: "skipped", error: "no valid recipients" };
   }
   if (!send) {
-    return { kind, to: recipients, status: "skipped", error: "RESEND_API_KEY is not set" };
+    return { kind, to: recipients, status: "skipped", error: "GMAIL_USER / GMAIL_APP_PASSWORD not set" };
   }
   try {
     const { id } = await send({ from: fromEmail(), to: recipients, ...message });
@@ -153,8 +187,7 @@ export async function sendBookingEmails(
 ): Promise<MailResult[]> {
   const results: MailResult[] = [];
   try {
-    const apiKey = resendApiKey();
-    const send = opts.deps?.send ?? (apiKey ? resendSender(apiKey) : null);
+    const send = opts.deps?.send ?? gmailSender();
     const lines = bookingLines(booking).join("\n");
     const room = field(booking.room, VENUE_ROOM);
     const hostEmails = opts.hostEmails ?? [];
@@ -215,8 +248,7 @@ export async function sendBookingEmails(
 
 /** Admin "send test email" helper. */
 export async function sendTestEmail(to: string[], deps?: MailDeps): Promise<MailResult> {
-  const apiKey = resendApiKey();
-  const send = deps?.send ?? (apiKey ? resendSender(apiKey) : null);
+  const send = deps?.send ?? gmailSender();
   const result = await deliver(send, "test", to, {
     subject: "Forge Summit office hours — test notification",
     text: "This is a test from the office hours admin page. If you got it, booking notifications will reach this address.",

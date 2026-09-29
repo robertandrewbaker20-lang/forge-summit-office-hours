@@ -168,7 +168,7 @@ export async function sendTestEmailAction(form: FormData): Promise<void> {
       record: (_slot, r) =>
         recordMail({ kind: r.kind, recipients: r.to, status: r.status, providerId: r.id, error: r.error }),
     });
-    if (result.status === "sent") return `Test email accepted by Resend for ${emails.join(", ")} (id ${result.id}).`;
+    if (result.status === "sent") return `Test email accepted by Gmail for ${emails.join(", ")} (id ${result.id}).`;
     throw new ValidationError(`Test email ${result.status}: ${result.error || "unknown error"}`);
   }, "#mail");
 }
